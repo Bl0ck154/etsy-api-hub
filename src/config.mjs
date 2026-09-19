@@ -39,10 +39,13 @@ export async function loadConfig(file = process.env.ETSY_HUB_CONFIG || DEFAULT_C
     default_shop: defaultShop,
     backup_dir: config.backup_dir || '/var/lib/etsy-api-hub/backups',
     audit_file: config.audit_file || '/var/log/etsy-api-hub/audit.jsonl',
+    oauth_state_dir: config.oauth_state_dir || '/var/lib/etsy-api-hub/oauth-state',
+    oauth_scopes: Array.isArray(config.oauth_scopes) ? config.oauth_scopes : null,
     server: {
       host: config.server?.host || '127.0.0.1',
       port: Number(config.server?.port || 3737),
       auth_token_file: config.server?.auth_token_file || null,
+      public_base_url: config.server?.public_base_url || null,
     },
   };
 }

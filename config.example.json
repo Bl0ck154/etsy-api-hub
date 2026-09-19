@@ -2,6 +2,21 @@
   "default_shop": "main",
   "backup_dir": "/var/lib/etsy-api-hub/backups",
   "audit_file": "/var/log/etsy-api-hub/audit.jsonl",
+  "oauth_state_dir": "/var/lib/etsy-api-hub/oauth-state",
+  "oauth_scopes": [
+    "listings_r",
+    "listings_w",
+    "listings_d",
+    "transactions_r",
+    "transactions_w",
+    "shops_r",
+    "shops_w",
+    "profile_r",
+    "profile_w",
+    "address_r",
+    "address_w",
+    "email_r"
+  ],
   "shops": {
     "main": {
       "shop_id": "12345678",
@@ -11,6 +26,7 @@
   "server": {
     "host": "127.0.0.1",
     "port": 3737,
-    "auth_token_file": "/var/lib/etsy-api-hub/internal-api-token"
+    "auth_token_file": "/var/lib/etsy-api-hub/internal-api-token",
+    "public_base_url": "https://etsy-api.example.com"
   }
 }

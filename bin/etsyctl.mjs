@@ -3,12 +3,15 @@ import fs from 'node:fs/promises';
 import { loadConfig, publicConfig } from '../src/config.mjs';
 import { EtsyHub } from '../src/hub.mjs';
 import { EtsyHubError } from '../src/errors.mjs';
+import { beginOAuth, completeOAuth } from '../src/oauth.mjs';
 
 function usage() {
   console.log(`etsyctl — shared Etsy API CLI
 
 Usage:
   etsyctl shops
+  etsyctl oauth start --shop alias --redirect https://... [--scopes "scope1 scope2"]
+  etsyctl oauth complete --state STATE --code CODE
   etsyctl request METHOD /application/... [--shop alias] [--body JSON|@file] [--query key=value ...] [--form key=value ...] [--file field=path ...]
   etsyctl listing get LISTING_ID [--shop alias]
   etsyctl listing list [STATE] [--limit N] [--offset N] [--shop alias]
@@ -114,6 +117,19 @@ async function main() {
   let result;
 
   if (p[0] === 'shops') return output(publicConfig(config));
+
+  if (p[0] === 'oauth') {
+    if (p[1] === 'start') {
+      if (!f.redirect) throw new Error('oauth start requires --redirect https://...');
+      const scopes = f.scopes ? String(f.scopes).split(/[\s,]+/).filter(Boolean) : undefined;
+      return output(await beginOAuth({ config, shopAlias: shop || config.default_shop, redirectUri: f.redirect, scopes }));
+    }
+    if (p[1] === 'complete') {
+      if (!f.state || !f.code) throw new Error('oauth complete requires --state and --code');
+      return output(await completeOAuth({ config, state: f.state, code: f.code }));
+    }
+    throw new Error('Unknown oauth command');
+  }
 
   if (p[0] === 'request') {
     if (!p[1] || !p[2]) throw new Error('request requires METHOD and PATH');

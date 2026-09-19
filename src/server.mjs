@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import { loadConfig, publicConfig } from './config.mjs';
 import { EtsyHub } from './hub.mjs';
+import { buildGptOpenApi, gptRead, gptWrite } from './gpt-adapter.mjs';
 
 const MAX_BODY = 2 * 1024 * 1024;
 
@@ -44,9 +45,26 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, service: 'etsy-api-hub' });
     }
 
+    if (req.method === 'GET' && url.pathname === '/gpt/openapi.json') {
+      const publicBaseUrl = config.server.public_base_url || `http://127.0.0.1:${config.server.port}`;
+      return send(res, 200, buildGptOpenApi({ publicBaseUrl }));
+    }
+
     if (internalToken) {
       const auth = String(req.headers.authorization || '');
       if (auth !== `Bearer ${internalToken}`) return send(res, 401, { ok: false, error: 'unauthorized' });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/gpt/read') {
+      const body = await readBody(req);
+      const result = await gptRead(hub, body);
+      return send(res, 200, { ok: true, data: result.data, meta: result.meta });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/gpt/write') {
+      const body = await readBody(req);
+      const result = await gptWrite(hub, body);
+      return send(res, 200, { ok: true, data: result.data, meta: result.meta });
     }
 
     if (req.method === 'GET' && url.pathname === '/v1/shops') {

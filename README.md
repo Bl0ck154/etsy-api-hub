@@ -114,3 +114,30 @@ Access tokens are refreshed through Etsy's OAuth refresh grant after a 401. Refr
 4. Point Order Forge and other services at Hub.
 5. If GPT Actions are needed again, build a thin adapter over Hub rather than maintaining a second Etsy implementation.
 6. Retire duplicate Etsy transport/auth code only after consumers are migrated and verified.
+
+
+## OAuth bootstrap
+
+The Hub can own its own Etsy OAuth token chain. Put only the static Etsy app keystring/shared secret into the shop credential file first, then start PKCE authorization:
+
+    etsyctl oauth start --shop main --redirect https://your-registered-callback.example/oauth/callback
+
+After Etsy redirects back with `code` and `state`:
+
+    etsyctl oauth complete --state <state> --code <code>
+
+The completion step verifies that the authorized Etsy account owns the configured `shop_id` before saving tokens.
+
+Do not copy a live refresh token from another active consumer merely to bootstrap the Hub. Etsy refresh responses return a new refresh token, so a token chain should have one credential owner. Either migrate that consumer deliberately, or authorize the Hub independently.
+
+## GPT Action adapter
+
+The built-in HTTP server exposes a thin adapter over the same Hub core:
+
+- `GET /gpt/openapi.json` — OpenAPI schema;
+- `POST /gpt/read` — GET-only Etsy reads;
+- `POST /gpt/write` — Etsy POST/PUT/PATCH/DELETE writes, marked consequential in the schema.
+
+Use API-key/Bearer authentication in the GPT Action configuration. The GPT never receives Etsy API credentials.
+
+The Action adapter is intentionally not a second Etsy implementation. It only translates Action requests into `EtsyHub.request()`. Media/file upload support for GPT conversation attachments should be added as a bounded adapter over the Hub upload primitives rather than by copying the legacy Etsy Manager Pro backend.

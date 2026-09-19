@@ -51,7 +51,12 @@ export class TokenFileStore {
   }
 
   async accessToken() {
-    return String((await this.read()).access_token);
+    const data = await this.read();
+    const expiresAt = Number(data.expires_at || 0);
+    if (expiresAt > 0 && Date.now() >= expiresAt - 60_000) {
+      return this.refresh(String(data.access_token));
+    }
+    return String(data.access_token);
   }
 
   async refresh(staleAccessToken = null) {
@@ -78,14 +83,19 @@ export class TokenFileStore {
       if (staleAccessToken && current.access_token !== staleAccessToken) return current.access_token;
 
       const clientId = keyFrom(current);
+      const secret = secretFrom(current);
       const form = new URLSearchParams({
         grant_type: 'refresh_token',
         client_id: clientId,
+        client_secret: secret,
         refresh_token: String(current.refresh_token),
       });
       const response = await this.fetchImpl(TOKEN_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'x-api-key': `${clientId}:${secret}`,
+        },
         body: form,
       });
       const text = await response.text();
