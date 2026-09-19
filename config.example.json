@@ -1,0 +1,16 @@
+{
+  "default_shop": "main",
+  "backup_dir": "/var/lib/etsy-api-hub/backups",
+  "audit_file": "/var/log/etsy-api-hub/audit.jsonl",
+  "shops": {
+    "main": {
+      "shop_id": "12345678",
+      "credential_file": "/var/lib/etsy-api-hub/credentials/main.json"
+    }
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 3737,
+    "auth_token_file": "/var/lib/etsy-api-hub/internal-api-token"
+  }
+}
