@@ -45,14 +45,14 @@ Credential files must live outside git and should be mode `0600`. The Hub suppor
 ## CLI examples
 
     etsyctl listing list active --limit 100
-    etsyctl listing get 4420886705
-    etsyctl listing update 4420886705 @/tmp/change.json
-    etsyctl personalization get 4420886705
-    etsyctl personalization set 4420886705 @/tmp/questions.json
-    etsyctl inventory get 4420886705
+    etsyctl listing get 1234567890
+    etsyctl listing update 1234567890 @/tmp/change.json
+    etsyctl personalization get 1234567890
+    etsyctl personalization set 1234567890 @/tmp/questions.json
+    etsyctl inventory get 1234567890
     etsyctl orders list --limit 20 --paid true
-    etsyctl images list 4420886705
-    etsyctl images upload 4420886705 ./cover.jpg --rank 1 --alt "Custom family portrait"
+    etsyctl images list 1234567890
+    etsyctl images upload 1234567890 ./cover.jpg --rank 1 --alt "Custom family portrait"
 
 For an endpoint not wrapped yet:
 
@@ -79,7 +79,7 @@ Example request body:
     {
       "shop": "main",
       "method": "GET",
-      "path": "/application/listings/4420886705",
+      "path": "/application/listings/1234567890",
       "query": {"includes": "Images,Personalization"}
     }
 

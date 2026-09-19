@@ -15,7 +15,7 @@ test('beginOAuth creates bounded PKCE state and Etsy authorization URL', async (
   const config = {
     default_shop: 'main',
     oauth_state_dir: stateDir,
-    shops: { main: { shop_id: '23207964', credential_file: credential } },
+    shops: { main: { shop_id: '12345678', credential_file: credential } },
   };
   const result = await beginOAuth({
     config,
@@ -33,7 +33,7 @@ test('beginOAuth creates bounded PKCE state and Etsy authorization URL', async (
   assert.equal(url.searchParams.get('state'), result.state);
 
   const state = JSON.parse(await fs.readFile(path.join(stateDir, result.state + '.json'), 'utf8'));
-  assert.equal(state.expected_shop_id, '23207964');
+  assert.equal(state.expected_shop_id, '12345678');
   assert.ok(state.verifier);
   assert.equal((await fs.stat(path.join(stateDir, result.state + '.json'))).mode & 0o777, 0o600);
 });
