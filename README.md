@@ -42,6 +42,8 @@ The config stores paths to credentials, not credentials themselves.
 
 Credential files must live outside git and should be mode `0600`. The Hub supports the existing Order Forge field names (`client_id`, `secret`, `access_token`, `refresh_token`) so migration can be incremental.
 
+For transitional deployments, `etsyctl` can load an external token-store provider from `ETSY_HUB_TOKEN_PROVIDER_MODULE`. The module must export `createTokenStore({ shop, config, fetchImpl })` and may return a compatible token store or `null` to fall back to the configured credential file. This keeps migration adapters outside the public Hub core and avoids copying live rotating tokens between consumers.
+
 ## CLI examples
 
     etsyctl listing list active --limit 100

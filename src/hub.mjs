@@ -15,9 +15,10 @@ function isoFileStamp() {
 }
 
 export class EtsyHub {
-  constructor(config, { fetchImpl = fetch } = {}) {
+  constructor(config, { fetchImpl = fetch, tokenStoreFactory = null } = {}) {
     this.config = config;
     this.fetchImpl = fetchImpl;
+    this.tokenStoreFactory = tokenStoreFactory;
     this.clients = new Map();
   }
 
@@ -31,7 +32,10 @@ export class EtsyHub {
   client(alias = null) {
     const shop = this.shop(alias);
     if (!this.clients.has(shop.alias)) {
-      const tokenStore = new TokenFileStore(shop.credential_file, { fetchImpl: this.fetchImpl });
+      const provided = this.tokenStoreFactory
+        ? this.tokenStoreFactory({ shop, config: this.config, fetchImpl: this.fetchImpl })
+        : null;
+      const tokenStore = provided || new TokenFileStore(shop.credential_file, { fetchImpl: this.fetchImpl });
       this.clients.set(shop.alias, new EtsyClient({ tokenStore, fetchImpl: this.fetchImpl }));
     }
     return this.clients.get(shop.alias);

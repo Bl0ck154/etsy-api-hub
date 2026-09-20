@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { loadConfig, publicConfig } from '../src/config.mjs';
 import { EtsyHub } from '../src/hub.mjs';
 import { EtsyHubError } from '../src/errors.mjs';
@@ -111,7 +113,16 @@ async function main() {
   const { positional: p, flags: f } = parseArgs(process.argv.slice(2));
   if (!p.length || p[0] === 'help') return usage();
   const config = await loadConfig();
-  const hub = new EtsyHub(config);
+  let tokenStoreFactory = null;
+  const providerModule = String(process.env.ETSY_HUB_TOKEN_PROVIDER_MODULE || '').trim();
+  if (providerModule) {
+    const provider = await import(pathToFileURL(path.resolve(providerModule)).href);
+    if (typeof provider.createTokenStore !== 'function') {
+      throw new Error('ETSY_HUB_TOKEN_PROVIDER_MODULE must export createTokenStore({ shop, config, fetchImpl })');
+    }
+    tokenStoreFactory = args => provider.createTokenStore(args);
+  }
+  const hub = new EtsyHub(config, { tokenStoreFactory });
   const shop = f.shop || null;
   const backup = !f['no-backup'];
   let result;
