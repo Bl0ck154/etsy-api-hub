@@ -3,6 +3,13 @@ import path from 'node:path';
 import { TokenFileStore } from './token-store.mjs';
 import { EtsyClient } from './client.mjs';
 import { inputError } from './errors.mjs';
+import {
+  normalizeListingChanges,
+  normalizeListingCollection,
+  normalizeListingData,
+  preserveExistingAddOnPrices,
+  validatePersonalizationQuestions,
+} from './etsy-schema.mjs';
 
 function id(value, name) {
   const text = String(value ?? '').trim();
@@ -76,22 +83,24 @@ export class EtsyHub {
   }
 
   async getListing(listingId, { shop = null, includes = ['Images', 'Videos', 'Personalization'] } = {}) {
-    return this.request({
+    const result = await this.request({
       shop, apiPath: `/application/listings/${id(listingId, 'listing_id')}`,
       query: includes?.length ? { includes: includes.join(',') } : null,
       operation: 'listing.get',
     });
+    return { ...result, data: normalizeListingData(result.data) };
   }
 
   async listListings({ shop = null, state = 'active', limit = 25, offset = 0 } = {}) {
     const cfg = this.shop(shop);
     const safeState = String(state || 'active');
-    return this.request({
+    const result = await this.request({
       shop: cfg.alias,
       apiPath: `/application/shops/${cfg.shop_id}/listings/${encodeURIComponent(safeState)}`,
       query: { limit, offset },
       operation: 'listing.list',
     });
+    return { ...result, data: normalizeListingCollection(result.data) };
   }
 
   async snapshotListing(listingId, { shop = null } = {}) {
@@ -127,7 +136,7 @@ export class EtsyHub {
       shop: cfg.alias,
       method: 'PATCH',
       apiPath: `/application/shops/${cfg.shop_id}/listings/${lid}`,
-      body: changes,
+      body: normalizeListingChanges(changes),
       operation: 'listing.update',
     });
     return { ...result, backup: snapshot };
@@ -140,14 +149,29 @@ export class EtsyHub {
   async setPersonalization(listingId, questions, { shop = null, backup = true } = {}) {
     const cfg = this.shop(shop);
     const lid = id(listingId, 'listing_id');
+    const preflightQuestions = validatePersonalizationQuestions(questions);
     let snapshot = null;
-    if (backup) snapshot = (await this.snapshotListing(lid, { shop: cfg.alias })).data.file;
+    let existingQuestions = [];
+
+    if (backup) {
+      const captured = (await this.snapshotListing(lid, { shop: cfg.alias })).data;
+      snapshot = captured.file;
+      existingQuestions = captured.snapshot.personalization?.personalization_questions || [];
+    } else {
+      const current = await this.getPersonalization(lid, { shop: cfg.alias });
+      existingQuestions = current.data?.personalization_questions || [];
+    }
+
+    const preparedQuestions = validatePersonalizationQuestions(
+      preserveExistingAddOnPrices(preflightQuestions, existingQuestions),
+    );
+
     const result = await this.request({
       shop: cfg.alias,
       method: 'POST',
       apiPath: `/application/shops/${cfg.shop_id}/listings/${lid}/personalization`,
       query: { supports_multiple_personalization_questions: 'true' },
-      body: { personalization_questions: questions },
+      body: { personalization_questions: preparedQuestions },
       operation: 'personalization.set',
     });
     return { ...result, backup: snapshot };
@@ -178,7 +202,7 @@ export class EtsyHub {
     const result = await this.request({
       shop: cfg.alias, method: 'PUT',
       apiPath: `/application/listings/${lid}/inventory`,
-      query: { legacy: 'false' }, body: inventory, operation: 'inventory.set',
+      query: { legacy: 'false', max_variations_supported: 3 }, body: inventory, operation: 'inventory.set',
     });
     return { ...result, backup: snapshot };
   }

@@ -33,6 +33,9 @@ The raw interface intentionally supports the complete Etsy `/v3/application/*` s
 - Prefer `etsyctl request` for unusual endpoints instead of bypassing the Hub.
 - Do not assume a listing must be a draft unless Etsy itself requires that endpoint to operate on drafts. The Hub core intentionally has no GPT-specific draft gate.
 - When an Etsy endpoint/schema is unfamiliar or recently changed, verify it against Etsy's current Open API documentation/spec rather than guessing.
+- Friendly listing reads normalize Etsy's live `listing_type` field and expose both `listing_type` and `type`; `is_digital` is derived from that value. Do not infer physical/digital status from shipping fields.
+- Personalization writes are validated locally before Etsy is called: 1-5 questions; `question_text` 1-45 characters; `instructions` <=120 characters; text limits 1-1024; uploads 1-10 files with at most one upload question; dropdowns 1-30 unique options with 1-20 character labels; labeled-upload labels 1-45 characters.
+- Existing personalization add-on prices are preserved automatically when an existing text question is updated without an explicit `add_on_price`. Send `0` or `null` explicitly to remove one.
 - Callers remain responsible for their own user-authorization policy for destructive or consequential actions. The Hub provides capability, not business approval.
 
 ## Architecture

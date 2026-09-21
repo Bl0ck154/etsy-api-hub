@@ -62,6 +62,26 @@ For an endpoint not wrapped yet:
 
 Friendly write commands snapshot the listing before mutation. Snapshot files contain listing, inventory and personalization data.
 
+### Current Etsy schema compatibility
+
+Friendly listing reads expose both `type` and `listing_type`. Etsy's live read payload currently uses `listing_type`, while parts of the public OpenAPI/write API still use `type`. The Hub normalizes this discrepancy and also exposes `is_digital`.
+
+Personalization writes are pre-validated before Etsy is called:
+
+- 1-5 personalization questions per listing
+- `question_text`: 1-45 characters
+- `instructions`: maximum 120 characters
+- text input: `max_allowed_characters` 1-1024
+- at most one upload question; `max_allowed_files` 1-10
+- dropdowns: 1-30 unique options, labels 1-20 characters
+- labeled uploads: option count equals file count, labels 1-45 characters
+- add-on pricing is only valid on optional text inputs
+
+When editing an existing text question that already has an add-on price, the Hub preserves that price if `add_on_price` is omitted. Pass `0` or `null` explicitly to remove it.
+
+Inventory writes opt into Etsy's current three-variation support with `max_variations_supported=3`.
+
+
 ## Internal HTTP API
 
 Start:

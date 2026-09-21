@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/server.mjs",
     "test": "node --test",
-    "check": "node --check src/client.mjs && node --check src/hub.mjs && node --check src/oauth.mjs && node --check src/gpt-adapter.mjs && node --check src/server.mjs && node --check bin/etsyctl.mjs"
+    "check": "node --check src/client.mjs && node --check src/etsy-schema.mjs && node --check src/hub.mjs && node --check src/oauth.mjs && node --check src/gpt-adapter.mjs && node --check src/server.mjs && node --check bin/etsyctl.mjs"
   },
   "engines": {
     "node": ">=22"
