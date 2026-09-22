@@ -56,6 +56,8 @@ For transitional deployments, `etsyctl` can load an external token-store provide
     etsyctl images list 1234567890
     etsyctl images upload 1234567890 ./cover.jpg --rank 1 --alt "Custom family portrait"
 
+Current Etsy listing media limits: up to **20 images** and **2 listing videos** per listing. The old 10-image assumption is obsolete; ranks 11-20 are valid. Listing videos are 3-15 seconds and Etsy removes audio after upload.
+
 For an endpoint not wrapped yet:
 
     etsyctl request GET /application/shops/12345678/sections
