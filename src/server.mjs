@@ -1,8 +1,12 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { loadConfig, publicConfig } from './config.mjs';
 import { EtsyHub } from './hub.mjs';
 import { buildGptOpenApi, gptRead, gptWrite } from './gpt-adapter.mjs';
+import { EtsyMcpOAuth } from './mcp-oauth.mjs';
+import { EtsyMcpAdapter } from './mcp-adapter.mjs';
 
 const MAX_BODY = 2 * 1024 * 1024;
 
@@ -19,11 +23,14 @@ async function readBody(req) {
   try { return JSON.parse(text); } catch { throw Object.assign(new Error('Request body must be valid JSON'), { status: 400, code: 'INVALID_JSON' }); }
 }
 
-function send(res, status, value) {
+function send(res, status, value, extraHeaders = {}) {
   const body = JSON.stringify(value, null, 2);
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'content-length': Buffer.byteLength(body),
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+    ...extraHeaders,
   });
   res.end(body);
 }
@@ -34,15 +41,60 @@ async function loadInternalToken(config) {
   return (await fs.readFile(file, 'utf8')).trim();
 }
 
+async function loadTokenStoreFactory() {
+  const providerModule = String(process.env.ETSY_HUB_TOKEN_PROVIDER_MODULE || '').trim();
+  if (!providerModule) return null;
+  const provider = await import(pathToFileURL(path.resolve(providerModule)).href);
+  if (typeof provider.createTokenStore !== 'function') {
+    throw new Error('ETSY_HUB_TOKEN_PROVIDER_MODULE must export createTokenStore({ shop, config, fetchImpl })');
+  }
+  return args => provider.createTokenStore(args);
+}
+
+function publicBase(req, config) {
+  if (config.server.public_base_url) return String(config.server.public_base_url).replace(/\/+$/, '');
+  const forwarded = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const protocol = forwarded === 'https' ? 'https' : 'http';
+  const host = String(req.headers.host || '').trim();
+  if (!/^[A-Za-z0-9.-]+(?::\d+)?$/.test(host)) return `http://127.0.0.1:${config.server.port}`;
+  return `${protocol}://${host}`;
+}
+
+function bearer(req) {
+  const auth = String(req.headers.authorization || '');
+  return auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+}
+
 const config = await loadConfig();
-const hub = new EtsyHub(config);
+const tokenStoreFactory = await loadTokenStoreFactory();
+const hub = new EtsyHub(config, { tokenStoreFactory });
 const internalToken = await loadInternalToken(config);
+const mcpOAuth = internalToken ? new EtsyMcpOAuth(internalToken, config.oauth_state_dir) : null;
+const mcpAdapter = new EtsyMcpAdapter(hub, config);
 
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
+
     if (req.method === 'GET' && url.pathname === '/health') {
-      return send(res, 200, { ok: true, service: 'etsy-api-hub' });
+      return send(res, 200, { ok: true, service: 'etsy-api-hub', mcp: Boolean(mcpOAuth) });
+    }
+
+    if (mcpOAuth && await mcpOAuth.handle(req, res, url, publicBase(req, config))) return;
+
+    if (url.pathname === '/mcp') {
+      if (!mcpOAuth || !internalToken) return send(res, 503, { ok: false, error: 'mcp_not_configured' });
+      const base = publicBase(req, config);
+      const token = bearer(req);
+      const resource = `${base}/mcp`;
+      const authorized = token && (token === internalToken || mcpOAuth.verifyAccessToken(token, resource));
+      if (!authorized) {
+        return send(res, 401, { ok: false, error: 'oauth_required' }, {
+          'www-authenticate': mcpOAuth.challenge(base),
+        });
+      }
+      await mcpAdapter.handle(req, res);
+      return;
     }
 
     if (req.method === 'GET' && url.pathname === '/gpt/openapi.json') {
@@ -100,5 +152,6 @@ server.listen(config.server.port, config.server.host, () => {
     service: 'etsy-api-hub',
     listening: `${config.server.host}:${config.server.port}`,
     auth_enabled: Boolean(internalToken),
+    mcp_enabled: Boolean(mcpOAuth),
   }));
 });
