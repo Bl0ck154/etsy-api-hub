@@ -61,3 +61,58 @@ test('inventory writes opt in to three-variation support', async () => {
   assert.equal(url.searchParams.get('legacy'), 'false');
   assert.equal(url.searchParams.get('max_variations_supported'), '3');
 });
+
+
+test('listing list uses current Etsy shop listings endpoint with state as query', async () => {
+  let seenUrl = '';
+  const hub = new EtsyHub(config(), {
+    tokenStoreFactory: tokenStore,
+    fetchImpl: async request => {
+      seenUrl = String(request);
+      return new Response(JSON.stringify({ count: 0, results: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    },
+  });
+  await hub.listListings({ state: 'inactive', limit: 11, offset: 4, includes: ['Images', 'Inventory'] });
+  const url = new URL(seenUrl);
+  assert.equal(url.pathname, '/v3/application/shops/12345678/listings');
+  assert.equal(url.searchParams.get('state'), 'inactive');
+  assert.equal(url.searchParams.get('limit'), '11');
+  assert.equal(url.searchParams.get('offset'), '4');
+  assert.equal(url.searchParams.get('includes'), 'Images,Inventory');
+});
+
+test('receipt list forwards current Etsy date and lifecycle filters', async () => {
+  let seenUrl = '';
+  const hub = new EtsyHub(config(), {
+    tokenStoreFactory: tokenStore,
+    fetchImpl: async request => {
+      seenUrl = String(request);
+      return new Response(JSON.stringify({ count: 0, results: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    },
+  });
+  await hub.listReceipts({
+    minCreated: 100,
+    maxCreated: 200,
+    minLastModified: 110,
+    maxLastModified: 210,
+    sortOn: 'created',
+    sortOrder: 'down',
+    wasPaid: true,
+    wasShipped: false,
+    wasDelivered: false,
+    wasCanceled: false,
+    legacy: false,
+  });
+  const q = new URL(seenUrl).searchParams;
+  assert.equal(q.get('min_created'), '100');
+  assert.equal(q.get('max_created'), '200');
+  assert.equal(q.get('min_last_modified'), '110');
+  assert.equal(q.get('max_last_modified'), '210');
+  assert.equal(q.get('sort_on'), 'created');
+  assert.equal(q.get('sort_order'), 'down');
+  assert.equal(q.get('was_paid'), 'true');
+  assert.equal(q.get('was_shipped'), 'false');
+  assert.equal(q.get('was_delivered'), 'false');
+  assert.equal(q.get('was_canceled'), 'false');
+  assert.equal(q.get('legacy'), 'false');
+});

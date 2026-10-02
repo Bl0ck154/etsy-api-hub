@@ -53,7 +53,7 @@ export class EtsyClient {
     this.max429Retries = max429Retries;
   }
 
-  async request({ method = 'GET', apiPath, query = null, body = undefined, form = null, files = null, headers = {} } = {}, state = {}) {
+  async request({ method = 'GET', apiPath, query = null, body = undefined, form = null, files = null, multipart = false, headers = {} } = {}, state = {}) {
     const verb = String(method).toUpperCase();
     if (!ALLOWED_METHODS.has(verb)) throw inputError(`Unsupported HTTP method: ${verb}`);
     const normalizedPath = normalizeApiPath(apiPath);
@@ -75,18 +75,36 @@ export class EtsyClient {
       ...headers,
     };
 
-    if (files?.length) {
-      const multipart = new FormData();
+    if (multipart || files?.length) {
+      const multipartBody = new FormData();
       for (const [key, value] of Object.entries(form || {})) {
         if (value === undefined || value === null) continue;
-        if (Array.isArray(value)) for (const item of value) multipart.append(key, String(item));
-        else multipart.append(key, String(value));
+        if (Array.isArray(value)) for (const item of value) multipartBody.append(key, String(item));
+        else multipartBody.append(key, String(value));
       }
-      for (const file of files) {
-        const bytes = await fs.readFile(file.path);
-        multipart.append(file.field, new Blob([bytes], { type: file.mime || mimeFor(file.path) }), file.name || path.basename(file.path));
+      for (const file of files || []) {
+        let bytes;
+        let fallbackName = 'upload.bin';
+        if (file.path) {
+          bytes = await fs.readFile(file.path);
+          fallbackName = path.basename(file.path);
+        } else if (Buffer.isBuffer(file.bytes) || file.bytes instanceof Uint8Array) {
+          bytes = Buffer.from(file.bytes);
+        } else if (typeof file.content_base64 === 'string') {
+          const compact = file.content_base64.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+          if (!compact || compact.length % 4 === 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) {
+            throw inputError(`Invalid base64 payload for multipart field ${file.field || 'file'}`, 'INVALID_FILE_DATA');
+          }
+          bytes = Buffer.from(compact, 'base64');
+        } else {
+          throw inputError(`Multipart field ${file.field || 'file'} requires path, bytes, or content_base64`, 'INVALID_FILE_DATA');
+        }
+        if (!bytes.length) throw inputError(`Multipart field ${file.field || 'file'} is empty`, 'INVALID_FILE_DATA');
+        const fileName = file.name || fallbackName;
+        const mime = file.mime || file.mime_type || (file.path ? mimeFor(file.path) : mimeFor(fileName));
+        multipartBody.append(file.field, new Blob([bytes], { type: mime }), fileName);
       }
-      payload = multipart;
+      payload = multipartBody;
     } else if (form) {
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(form)) {
@@ -111,7 +129,7 @@ export class EtsyClient {
 
     if (response.status === 401 && !state.refreshed) {
       const accessToken = await this.tokenStore.refresh(currentAccessToken);
-      return this.request({ method: verb, apiPath: normalizedPath, query, body, form, files, headers }, {
+      return this.request({ method: verb, apiPath: normalizedPath, query, body, form, files, multipart, headers }, {
         ...state, refreshed: true, accessToken,
       });
     }
@@ -120,7 +138,7 @@ export class EtsyClient {
       const retryAfter = Number(response.headers.get('retry-after') || 0);
       const backoff = Math.max(retryAfter * 1000, 500 * (2 ** (state.retry429 || 0)));
       await sleep(Math.min(backoff, 10_000));
-      return this.request({ method: verb, apiPath: normalizedPath, query, body, form, files, headers }, {
+      return this.request({ method: verb, apiPath: normalizedPath, query, body, form, files, multipart, headers }, {
         ...state, retry429: (state.retry429 || 0) + 1, accessToken: currentAccessToken,
       });
     }
