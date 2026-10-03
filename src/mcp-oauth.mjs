@@ -47,11 +47,43 @@ async function readForm(req) {
   return new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
 }
 
+const AUTH_FAIL_WINDOW_MS = 15 * 60_000;
+const AUTH_FAIL_MAX = 5;
+
+function loadPasswordHash() {
+  const file = String(process.env.MCP_OWNER_PASSWORD_HASH_FILE || '/opt/mcp-owner-auth-shared/password.json').trim();
+  if (!file) throw new Error('MCP_OWNER_PASSWORD_HASH_FILE is required');
+  const value = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (value.version !== 1 || value.algorithm !== 'scrypt' || !value.salt || !value.hash || !Number.isInteger(value.n) || !Number.isInteger(value.r) || !Number.isInteger(value.p)) throw new Error('Invalid MCP owner password hash file');
+  return value;
+}
+
+function verifyPassword(password, record) {
+  const expected = Buffer.from(record.hash, 'hex');
+  const actual = crypto.scryptSync(password, Buffer.from(record.salt, 'hex'), expected.length, { N: record.n, r: record.r, p: record.p, maxmem: 64 * 1024 * 1024 });
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
+
+function clientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  return String(raw || req.socket.remoteAddress || 'unknown').split(',')[0].trim().slice(0, 128);
+}
+
+function passwordPage(res, status = 200, error = '') {
+  const message = error ? `<p style="color:#b42318">${error}</p>` : '';
+  const body = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Authorize My Etsy</title></head><body style="font-family:system-ui;max-width:420px;margin:12vh auto;padding:24px"><h2>Authorize My Etsy</h2>${message}<form method="post"><label>Password<br><input name="password" type="password" autocomplete="current-password" autofocus required style="width:100%;box-sizing:border-box;padding:10px;margin:8px 0 16px"></label><button type="submit" style="padding:10px 18px">Continue</button></form></body></html>`;
+  res.writeHead(status, { 'content-type':'text/html; charset=utf-8', 'content-length':Buffer.byteLength(body), 'cache-control':'no-store', 'content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'", 'x-content-type-options':'nosniff', 'referrer-policy':'no-referrer' });
+  res.end(body);
+}
+
 export class EtsyMcpOAuth {
   constructor(secret, stateDir) {
     this.secret = secret;
     this.lockPath = path.join(stateDir, 'mcp-chatgpt-client.json');
     this.codes = new Map();
+    this.passwordHash = loadPasswordHash();
+    this.passwordFailures = new Map();
     fs.mkdirSync(stateDir, { recursive: true, mode: 0o700 });
   }
 
@@ -185,7 +217,7 @@ export class EtsyMcpOAuth {
       return true;
     }
 
-    if (req.method === 'GET' && url.pathname === '/oauth/authorize') {
+    if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/oauth/authorize') {
       const responseType = url.searchParams.get('response_type') || '';
       const clientId = url.searchParams.get('client_id') || '';
       const redirectUri = url.searchParams.get('redirect_uri') || '';
@@ -198,24 +230,36 @@ export class EtsyMcpOAuth {
         if (responseType !== 'code' || challengeMethod !== 'S256' || challenge.length < 43 || requestedResource !== resource) throw new Error('invalid_request');
         if (requestedScope.split(/\s+/).some(scope => scope !== SCOPE)) throw new Error('invalid_scope');
         await this.validateChatGptClient(clientId, redirectUri);
+
+        if (req.method === 'GET') { passwordPage(res); return true; }
+
+        const ip = clientIp(req);
+        const now = Date.now();
+        const failures = (this.passwordFailures.get(ip) || []).filter(ts => ts > now - AUTH_FAIL_WINDOW_MS);
+        if (failures.length >= AUTH_FAIL_MAX) {
+          this.passwordFailures.set(ip, failures);
+          passwordPage(res, 429, 'Too many failed attempts. Try again later.');
+          return true;
+        }
+        const form = await readForm(req);
+        const password = form.get('password') || '';
+        if (!verifyPassword(password, this.passwordHash)) {
+          failures.push(now);
+          this.passwordFailures.set(ip, failures);
+          passwordPage(res, 401, 'Incorrect password.');
+          return true;
+        }
+        this.passwordFailures.delete(ip);
+
         const code = crypto.randomBytes(32).toString('base64url');
-        this.codes.set(code, {
-          clientId,
-          redirectUri,
-          codeChallenge: challenge,
-          resource,
-          scope: requestedScope,
-          expiresAt: Date.now() + CODE_TTL_MS,
-        });
+        this.codes.set(code, { clientId, redirectUri, codeChallenge: challenge, resource, scope: requestedScope, expiresAt: Date.now() + CODE_TTL_MS });
         const target = new URL(redirectUri);
         target.searchParams.set('code', code);
         if (state) target.searchParams.set('state', state);
         res.writeHead(302, { location: target.toString(), 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
         res.end();
       } catch (error) {
-        const code = ['unauthorized_client', 'invalid_redirect_uri', 'invalid_scope'].includes(error?.message)
-          ? error.message
-          : 'invalid_request';
+        const code = ['unauthorized_client', 'invalid_redirect_uri', 'invalid_scope'].includes(error?.message) ? error.message : 'invalid_request';
         if (redirectUri) {
           try {
             const target = new URL(redirectUri);
@@ -223,12 +267,8 @@ export class EtsyMcpOAuth {
             if (state) target.searchParams.set('state', state);
             res.writeHead(302, { location: target.toString(), 'cache-control': 'no-store' });
             res.end();
-          } catch {
-            json(res, 400, { error: code });
-          }
-        } else {
-          json(res, 400, { error: code });
-        }
+          } catch { json(res, 400, { error: code }); }
+        } else { json(res, 400, { error: code }); }
       }
       return true;
     }
