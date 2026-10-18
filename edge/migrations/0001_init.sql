@@ -54,3 +54,9 @@ CREATE TABLE IF NOT EXISTS mcp_failures (
   count INTEGER NOT NULL,
   until INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS mcp_lock (
+  id INTEGER PRIMARY KEY CHECK(id = 1),
+  client_id TEXT NOT NULL,
+  at INTEGER NOT NULL
+);
