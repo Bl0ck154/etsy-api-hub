@@ -63,3 +63,36 @@ test('owner bootstrap routes require admin bearer', async () => {
   const r = await worker.fetch(req('/admin/status',undefined,''),env);
   assert.equal(r.status,401);
 });
+
+const onlyOwner = {
+  SHOPS_JSON: '{"main":{"shop_id":"12345678"}}',
+  ENABLE_WRITES: 'false',
+  MCP_OWNER_PASSWORD: 'this-is-a-test-owner-password-very-long-not-production'
+};
+test('one strong owner password unlocks read-only MCP without extra key secrets', async () => {
+  const r = await worker.fetch(req('/mcp', { jsonrpc:'2.0',id:51,method:'tools/list' }, onlyOwner.MCP_OWNER_PASSWORD), onlyOwner);
+  assert.equal(r.status, 200);
+  assert.ok((await r.json()).result.tools.length >= 60);
+});
+test('owner password is sufficient for readiness, not echoed in health output', async () => {
+  const r = await worker.fetch(req('/health'), onlyOwner);
+  const body = await r.json();
+  assert.equal(body.oauth_ready,true);
+  assert.equal(body.etsy_ready,false);
+  assert.equal(JSON.stringify(body).includes(onlyOwner.MCP_OWNER_PASSWORD),false);
+});
+test('web setup page offers shop choice and password without revealing it', async () => {
+  const r = await worker.fetch(req('/admin/connect'),onlyOwner);
+  assert.equal(r.status,200);
+  const page = await r.text();
+  assert.match(page,/Connect Etsy shop/);
+  assert.match(page,/type="password"/);
+  assert.equal(page.includes(onlyOwner.MCP_OWNER_PASSWORD),false);
+});
+test('browser setup forbids cross-origin POSTs', async () => {
+  const request = new Request(url + '/admin/connect', {
+    method:'POST',headers:{'content-type':'application/x-www-form-urlencoded','origin':'https://evil.example'},
+    body:new URLSearchParams({shop:'main',password:onlyOwner.MCP_OWNER_PASSWORD})
+  });
+  assert.equal((await worker.fetch(request,onlyOwner)).status,403);
+});
