@@ -7,9 +7,10 @@ import { buildGptOpenApi, gptRead, gptWrite } from '../src/gpt-adapter.mjs';
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 const noStore = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
-const b64 = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const b64 = bytes => { const b = new Uint8Array(bytes); let out = ''; for (let i=0;i<b.length;i+=8192) out += String.fromCharCode(...b.subarray(i,i+8192)); return btoa(out).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 const unb64 = s => Uint8Array.from(atob(String(s).replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - String(s).length % 4) % 4)), c => c.charCodeAt(0));
 const random = n => b64(crypto.getRandomValues(new Uint8Array(n)));
+const escapeAttr = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const now = () => Date.now();
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
 const json = (value, status = 200, headers = {}) => new Response(JSON.stringify(value), { status, headers: { ...noStore, 'content-type': 'application/json; charset=utf-8', ...headers } });
@@ -186,7 +187,7 @@ async function oauth(req, env, url) {
     const metaReq = await fetch(client, { signal: AbortSignal.timeout(5000), redirect: 'error' }).catch(() => null);
     const meta = metaReq?.ok ? await metaReq.json().catch(() => null) : null;
     if (!meta || meta.client_id !== client || meta.client_name !== 'ChatGPT' || !meta.redirect_uris?.includes(target)) return json({ error: 'unauthorized_client' }, 400);
-    if (req.method === 'GET') return html('<!doctype html><html><head><meta charset="utf-8"><title>Etsy Hub Owner Login</title></head><body><h2>Connect Etsy Hub</h2><form method="post"><input type="hidden" name="client_id" value="' + client.replace(/"/g,'&quot;') + '"><input type="hidden" name="redirect_uri" value="' + target.replace(/"/g,'&quot;') + '"><input type="hidden" name="code_challenge" value="' + challenge + '"><input type="hidden" name="code_challenge_method" value="S256"><input type="hidden" name="response_type" value="code"><input type="hidden" name="resource" value="' + resource + '"><input type="hidden" name="state" value="' + state.replace(/"/g,'&quot;') + '"><label>Owner password <input type="password" name="password" autocomplete="current-password" required></label><button type="submit">Connect</button></form></body></html>');
+    if (req.method === 'GET') return html('<!doctype html><html><head><meta charset="utf-8"><title>Etsy Hub Owner Login</title></head><body><h2>Connect Etsy Hub</h2><form method="post"><input type="hidden" name="client_id" value="' + escapeAttr(client) + '"><input type="hidden" name="redirect_uri" value="' + escapeAttr(target) + '"><input type="hidden" name="code_challenge" value="' + challenge + '"><input type="hidden" name="code_challenge_method" value="S256"><input type="hidden" name="response_type" value="code"><input type="hidden" name="resource" value="' + resource + '"><input type="hidden" name="state" value="' + escapeAttr(state) + '"><label>Owner password <input type="password" name="password" autocomplete="current-password" required></label><button type="submit">Connect</button></form></body></html>');
     const ip = req.headers.get('cf-connecting-ip') || 'unknown';
     const attempts = await env.DB.prepare('SELECT count,until FROM mcp_failures WHERE ip=?').bind(ip).first();
     if (attempts && attempts.count >= 5 && attempts.until > now()) return json({ error: 'too_many_attempts' }, 429);
@@ -195,9 +196,11 @@ async function oauth(req, env, url) {
       return html('<p>Incorrect password.</p>',401);
     }
     await env.DB.prepare('DELETE FROM mcp_failures WHERE ip=?').bind(ip).run();
-    const existing = await env.DB.prepare('SELECT client_id FROM mcp_client LIMIT 1').first();
+    const existing = await env.DB.prepare('SELECT client_id FROM mcp_lock WHERE id=1').first();
     if (existing && existing.client_id !== client) return json({ error: 'unauthorized_client' }, 403);
-    if (!existing) await env.DB.prepare('INSERT OR IGNORE INTO mcp_client (client_id,at) VALUES(?,?)').bind(client, now()).run();
+    if (!existing) await env.DB.prepare('INSERT OR IGNORE INTO mcp_lock (id,client_id,at) VALUES(1,?,?)').bind(client, now()).run();
+    const locked = await env.DB.prepare('SELECT client_id FROM mcp_lock WHERE id=1').first();
+    if (locked?.client_id !== client) return json({error:'unauthorized_client'},403);
     const code = random(32);
     await env.DB.prepare('INSERT INTO mcp_codes(code,client_id,redirect_uri,challenge,resource,expires) VALUES(?,?,?,?,?,?)').bind(await hash(code), client, target, challenge, resource, now()+300000).run();
     const targetUrl = new URL(target); targetUrl.searchParams.set('code',code); if(state) targetUrl.searchParams.set('state',state);
@@ -207,7 +210,7 @@ async function oauth(req, env, url) {
     if (!env.MCP_SIGNING_KEY) return json({ error: 'mcp_not_configured' }, 503);
     const q = new URLSearchParams(await req.text());
     const client = q.get('client_id') || '';
-    const registered = await env.DB.prepare('SELECT client_id FROM mcp_client WHERE client_id=?').bind(client).first();
+    const registered = await env.DB.prepare('SELECT client_id FROM mcp_lock WHERE id=1 AND client_id=?').bind(client).first();
     if (!registered) return json({ error: 'invalid_client' }, 401);
     if (q.get('grant_type') === 'authorization_code') {
       const codeHash = await hash(q.get('code') || '');
@@ -294,7 +297,8 @@ export default {
           if (!ETSY_MCP_TOOLS.some(tool => tool.name === name)) return json({jsonrpc:'2.0',id,error:{code:-32601,message:'Unknown tool'}},400);
           if (mcpWrite(name) && env.ENABLE_WRITES !== 'true') return reply({content:[{type:'text',text:'Writes disabled during Cloudflare migration.'}],isError:true});
           try {
-            const value = await new EtsyMcpAdapter(new EdgeHub(env), new EdgeHub(env).config).call(name,args);
+            const hub = new EdgeHub(env);
+            const value = await new EtsyMcpAdapter(hub, hub.config).call(name,args);
             return reply({content:[{type:'text',text:JSON.stringify(value)}],structuredContent:value});
           } catch (err) {
             return reply({content:[{type:'text',text:JSON.stringify({ok:false,error:err.message})}],isError:true});
