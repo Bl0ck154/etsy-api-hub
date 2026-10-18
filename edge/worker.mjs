@@ -46,8 +46,11 @@ const appFor = (env, alias) => {
   return credentials;
 };
 const aesKey = async env => {
-  if (!env.TOKEN_ENCRYPTION_KEY || env.TOKEN_ENCRYPTION_KEY.length < 32) throw fail('TOKEN_ENCRYPTION_KEY_NOT_CONFIGURED', 503);
-  return crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', enc.encode(env.TOKEN_ENCRYPTION_KEY)), 'AES-GCM', false, ['encrypt','decrypt']);
+  const secret = env.TOKEN_ENCRYPTION_KEY || env.MCP_OWNER_PASSWORD;
+  if (!secret || secret.length < 32) throw fail('OWNER_PASSWORD_NOT_CONFIGURED', 503);
+  // Domain-separated keys. Rotating OWNER password without re-encryption invalidates stored credentials.
+  const raw = await crypto.subtle.digest('SHA-256', enc.encode('etsy-api-hub:token-encryption:v1:' + secret));
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt','decrypt']);
 };
 async function seal(env, obj) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -134,8 +137,10 @@ class EdgeHub extends EtsyHub {
   }
 }
 async function hmacKey(env) {
-  if (!env.MCP_SIGNING_KEY || env.MCP_SIGNING_KEY.length < 32) throw fail('MCP_SIGNING_KEY_NOT_CONFIGURED', 503);
-  return crypto.subtle.importKey('raw', enc.encode(env.MCP_SIGNING_KEY), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const secret = env.MCP_SIGNING_KEY || env.MCP_OWNER_PASSWORD;
+  if (!secret || secret.length < 32) throw fail('OWNER_PASSWORD_NOT_CONFIGURED', 503);
+  const raw = await crypto.subtle.digest('SHA-256', enc.encode('etsy-api-hub:mcp-signing:v1:' + secret));
+  return crypto.subtle.importKey('raw', raw, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
 }
 async function sign(env, obj) {
   const body = b64(enc.encode(JSON.stringify(obj)));
@@ -165,12 +170,13 @@ async function issue(env, client, resource) {
 }
 const authBearer = async (req, env) => {
   const got = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  return Boolean(env.ADMIN_BEARER && env.ADMIN_BEARER.length >= 32 && await same(got, env.ADMIN_BEARER));
+  const owner = env.ADMIN_BEARER || env.MCP_OWNER_PASSWORD;
+  return Boolean(owner && owner.length >= 32 && await same(got, owner));
 };
 async function authorized(req, env, resource) {
   if (await authBearer(req, env)) return true;
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  return Boolean(token && env.MCP_SIGNING_KEY && await verify(env, token, 'access', resource));
+  return Boolean(token && (env.MCP_SIGNING_KEY || env.MCP_OWNER_PASSWORD) && await verify(env, token, 'access', resource));
 }
 const mcpWrite = name => /(_write|_create|_update|_delete|_set|_upload|_multipart)$/.test(name) || ['etsy_listing_create','etsy_inventory_set','etsy_personalization_set','etsy_request_write','etsy_request_multipart','etsy_variation_images_set','etsy_section_write','etsy_return_policy_write','etsy_processing_profile_write','etsy_shipping_profile_write','etsy_listing_property_write','etsy_listing_translation_write','etsy_holiday_preference_update'].includes(name);
 async function oauth(req, env, url) {
@@ -178,7 +184,7 @@ async function oauth(req, env, url) {
   if (path === '/.well-known/oauth-protected-resource' || path === '/.well-known/oauth-protected-resource/mcp') return json({ resource, authorization_servers: [origin], scopes_supported: [scope] });
   if (path === '/.well-known/oauth-authorization-server' || path === '/.well-known/openid-configuration') return json({ issuer: origin, authorization_endpoint: origin + '/oauth/authorize', token_endpoint: origin + '/oauth/token', response_types_supported: ['code'], grant_types_supported: ['authorization_code','refresh_token'], token_endpoint_auth_methods_supported: ['none'], code_challenge_methods_supported: ['S256'], scopes_supported: [scope], client_id_metadata_document_supported: true });
   if (path === '/oauth/authorize' && ['GET','POST'].includes(req.method)) {
-    if (!env.MCP_OWNER_PASSWORD || !env.MCP_SIGNING_KEY) return json({ error: 'mcp_not_configured' }, 503);
+    if (!env.MCP_OWNER_PASSWORD || env.MCP_OWNER_PASSWORD.length < 32) return json({ error: 'mcp_not_configured' }, 503);
     const q = req.method === 'GET' ? url.searchParams : new URLSearchParams(await req.text());
     const client = q.get('client_id') || '', target = q.get('redirect_uri') || '', challenge = q.get('code_challenge') || '', state = q.get('state') || '';
     let c, r;
@@ -207,7 +213,7 @@ async function oauth(req, env, url) {
     return redirect(targetUrl.toString());
   }
   if (path === '/oauth/token' && req.method === 'POST') {
-    if (!env.MCP_SIGNING_KEY) return json({ error: 'mcp_not_configured' }, 503);
+    if (!env.MCP_SIGNING_KEY && !env.MCP_OWNER_PASSWORD) return json({ error: 'mcp_not_configured' }, 503);
     const q = new URLSearchParams(await req.text());
     const client = q.get('client_id') || '';
     const registered = await env.DB.prepare('SELECT client_id FROM mcp_lock WHERE id=1 AND client_id=?').bind(client).first();
@@ -274,7 +280,7 @@ export default {
       const url = new URL(req.url), path = url.pathname, origin = url.origin;
       if (path === '/health') {
         const shops = readShops(env);
-        return json({ ok: true, service: 'etsy-api-hub-cloudflare', account: 'malinary-art', configured_shops: Object.keys(shops).length, oauth_ready: Boolean(env.MCP_OWNER_PASSWORD && env.MCP_SIGNING_KEY), etsy_ready: Boolean(env.TOKEN_ENCRYPTION_KEY && (env.ETSY_APPS_JSON || env.ETSY_CLIENT_ID)) });
+        return json({ ok: true, service: 'etsy-api-hub-cloudflare', account: 'malinary-art', configured_shops: Object.keys(shops).length, oauth_ready: Boolean(env.MCP_OWNER_PASSWORD && env.MCP_OWNER_PASSWORD.length >= 32), etsy_ready: Boolean((env.TOKEN_ENCRYPTION_KEY || env.MCP_OWNER_PASSWORD) && (env.ETSY_APPS_JSON || env.ETSY_CLIENT_ID)) });
       }
       if (path.startsWith('/.well-known/') || path === '/oauth/authorize' || path === '/oauth/token') {
         const resp = await oauth(req, env, url); if (resp) return resp;
