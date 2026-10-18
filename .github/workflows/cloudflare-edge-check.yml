@@ -1,0 +1,24 @@
+name: Etsy API Hub Edge Checks
+on:
+  pull_request:
+    paths:
+      - 'edge/**'
+      - 'src/**'
+      - '.github/workflows/cloudflare-edge-check.yml'
+  push:
+    branches:
+      - 'feature/cloudflare-workers-malinary-20261018'
+    paths:
+      - 'edge/**'
+      - 'src/**'
+jobs:
+  edge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check edge/worker.mjs
+      - run: node --test edge/tests/*.test.mjs
+      - run: npm test
