@@ -235,25 +235,53 @@ async function oauth(req, env, url) {
   }
   return null;
 }
+async function beginEtsyAuthorization(env, url, alias) {
+  const hub = new EdgeHub(env), cfg = hub.shop(alias), app = appFor(env, alias);
+  if (await env.DB.prepare('SELECT alias FROM hub_tokens WHERE alias=?').bind(alias).first()) throw fail('shop_already_connected',409);
+  const state = random(32), verifier = random(64), challenge = await hash(verifier);
+  const redirectUri = url.origin + '/admin/oauth/callback';
+  await env.DB.prepare('INSERT INTO hub_oauth(state,alias,verifier,redirect_uri,expires) VALUES(?,?,?,?,?)')
+    .bind(await hash(state),alias,verifier,redirectUri,now()+900000).run();
+  const etsy = new URL('https://www.etsy.com/oauth/connect');
+  for (const [key,value] of Object.entries({response_type:'code',client_id:app.client_id,redirect_uri:redirectUri,scope:scopes.join(' '),state,code_challenge:challenge,code_challenge_method:'S256'})) etsy.searchParams.set(key,value);
+  return {shop:alias,shop_id:String(cfg.shop_id),authorization_url:etsy.toString(),expires_in_seconds:900};
+}
+async function etsyConnect(req, env, url) {
+  if (req.method === 'GET') {
+    const aliases = Object.keys(readShops(env));
+    const options = aliases.map(alias => '<option value="' + escapeAttr(alias) + '">' + escapeAttr(alias) + '</option>').join('');
+    return html('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Connect Etsy shop</title><style>body{font:16px system-ui;max-width:440px;margin:3rem auto;padding:1rem;line-height:1.6}label{display:block;margin:1rem 0}input,select,button{box-sizing:border-box;width:100%;font:inherit;padding:.7rem}button{cursor:pointer}</style></head><body><h2>Connect Etsy shop</h2><p>Authorize your shop on Etsy. Your existing VPS session is not modified.</p>'+(!aliases.length?'<p>First configure SHOPS_JSON with the correct Etsy shop IDs in Cloudflare.</p>':'<form method="post" action="/admin/connect"><label>Shop<select name="shop" required>'+options+'</select></label><label>Owner password<input type="password" name="password" minlength="32" autocomplete="current-password" required></label><button>Continue to Etsy</button></form>')+'</body></html>');
+  }
+  if (req.method !== 'POST') return json({error:'method_not_allowed'},405);
+  if (req.headers.get('origin') !== url.origin) return json({error:'invalid_origin'},403);
+  if (Number(req.headers.get('content-length')||0)>4096) return json({error:'too_large'},413);
+  const raw = await req.text();if(raw.length>4096)return json({error:'too_large'},413);
+  const form = new URLSearchParams(raw);
+  const ip = req.headers.get('cf-connecting-ip') || 'unknown';
+  const record = await env.DB.prepare('SELECT count,until FROM mcp_failures WHERE ip=?').bind(ip).first();
+  if (record && record.count>=5 && record.until>now()) return html('<p>Too many failed attempts.</p>',429);
+  if (!env.MCP_OWNER_PASSWORD || env.MCP_OWNER_PASSWORD.length<32 || !(await same(form.get('password')||'',env.MCP_OWNER_PASSWORD))) {
+    await env.DB.prepare('INSERT INTO mcp_failures(ip,count,until) VALUES(?,1,?) ON CONFLICT(ip) DO UPDATE SET count=CASE WHEN until<? THEN 1 ELSE count+1 END,until=?')
+      .bind(ip,now()+900000,now(),now()+900000).run();
+    return html('<p>Incorrect owner password or setup incomplete.</p>',401);
+  }
+  await env.DB.prepare('DELETE FROM mcp_failures WHERE ip=?').bind(ip).run();
+  const requested = form.get('shop');
+  if (!requested || !Object.prototype.hasOwnProperty.call(readShops(env),requested)) return json({error:'unknown_shop'},400);
+  const data = await beginEtsyAuthorization(env,url,requested);
+  return redirect(data.authorization_url);
+}
 async function etsyAdmin(req, env, url) {
-  if (!await authBearer(req, env)) return json({ error: 'unauthorized' }, 401);
-  const hub = new EdgeHub(env);
+  if (!await authBearer(req, env)) return json({error:'unauthorized'},401);
   if (url.pathname === '/admin/oauth/start' && req.method === 'POST') {
-    const body = await getBody(req, 4096), alias = body.shop || hub.config.default_shop;
-    const cfg = hub.shop(alias), app = appFor(env, alias);
-    if (await env.DB.prepare('SELECT alias FROM hub_tokens WHERE alias=?').bind(alias).first()) return json({ error: 'shop_already_connected', message: 'Do not replace active Etsy refresh-token chain without deliberate cutover.' }, 409);
-    const state = random(32), verifier = random(64), challenge = await hash(verifier);
-    const redirectUri = url.origin + '/admin/oauth/callback';
-    await env.DB.prepare('INSERT INTO hub_oauth(state,alias,verifier,redirect_uri,expires) VALUES(?,?,?,?,?)').bind(await hash(state), alias, verifier, redirectUri, now()+900000).run();
-    const etsy = new URL('https://www.etsy.com/oauth/connect');
-    for (const [key,value] of Object.entries({ response_type: 'code', client_id: app.client_id, redirect_uri: redirectUri, scope: scopes.join(' '), state, code_challenge: challenge, code_challenge_method: 'S256' })) etsy.searchParams.set(key,value);
-    return json({ shop: alias, shop_id: String(cfg.shop_id), authorization_url: etsy.toString(), expires_in_seconds: 900 });
+    const body = await getBody(req,4096);
+    return json(await beginEtsyAuthorization(env,url,body.shop || new EdgeHub(env).config.default_shop));
   }
   if (url.pathname === '/admin/status' && req.method === 'GET') {
     const rows = await env.DB.prepare('SELECT alias,updated_at FROM hub_tokens ORDER BY alias').all();
-    return json({ shops: readShops(env), connected: rows.results });
+    return json({shops:readShops(env),connected:rows.results});
   }
-  return json({ error: 'not_found' }, 404);
+  return json({error:'not_found'},404);
 }
 async function etsyCallback(env, url) {
   const record = await env.DB.prepare('DELETE FROM hub_oauth WHERE state=? RETURNING *').bind(await hash(url.searchParams.get('state') || '')).first();
@@ -287,6 +315,7 @@ export default {
       }
       if (path === '/gpt/openapi.json' && req.method === 'GET') return json(buildGptOpenApi({publicBaseUrl:origin}));
       if (path === '/admin/oauth/callback' && req.method === 'GET') return etsyCallback(env,url);
+      if (path === '/admin/connect') return etsyConnect(req,env,url);
       if (path.startsWith('/admin/')) return etsyAdmin(req,env,url);
       if (path === '/mcp' && req.method === 'POST') {
         if (!await authorized(req,env,origin+'/mcp')) return json({ error: 'oauth_required' },401,{ 'www-authenticate': 'Bearer resource_metadata="' + origin + '/.well-known/oauth-protected-resource"' });
