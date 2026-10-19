@@ -259,7 +259,7 @@ async function etsyConnect(req, env, url) {
   }
   if (req.method !== 'POST') return json({error:'method_not_allowed'},405);
   const origin = req.headers.get('origin');
-  if (origin && origin !== url.origin) return json({error:'invalid_origin'},403);
+  if (origin && origin !== 'null' && origin !== url.origin) return json({error:'invalid_origin'},403);
   const referer = req.headers.get('referer');
   if (referer) {
     let ref;
