@@ -112,3 +112,26 @@ test('scheduled housekeeping prunes only ephemeral OAuth/audit, not Etsy tokens 
   assert.equal(deleted.some(s=>s.includes('hub_snapshots')),false);
   assert.equal(deleted.some(s=>s.includes('hub_clients')),false);
 });
+
+
+test('login works when Firefox/privacy browsers omit Origin using strict same-site CSRF', async () => {
+  const rows=[];
+  const db={prepare(sql){return {bind(...args){return {first:async()=>null, run:async()=>{rows.push({sql, args});return {meta:{changes:1}};}}}}}};
+  const browserEnv={...onlyOwner,DB:db,ETSY_CLIENT_ID:'test-id',ETSY_CLIENT_SECRET:'test-secret'};
+  const page=await worker.fetch(req('/admin/connect'),browserEnv);
+  assert.equal(page.status,200);
+  const cookie=page.headers.get('set-cookie');
+  assert.match(cookie,/HttpOnly; SameSite=Strict/);
+  const nonce=(await page.text()).match(/name="_csrf" value="([^"]+)"/)?.[1];
+  assert.ok(nonce?.length>32);
+  const form=new URLSearchParams({shop:'main',password:onlyOwner.MCP_OWNER_PASSWORD,_csrf:nonce});
+  const request=new Request(url+'/admin/connect',{method:'POST',headers:{'cookie':cookie.split(';')[0],'content-type':'application/x-www-form-urlencoded','sec-fetch-site':'same-origin'},body:form.toString()});
+  const response=await worker.fetch(request,browserEnv);
+  assert.equal(response.status,302);
+  assert.match(response.headers.get('location'),/^https:\/\/www\.etsy\.com\/oauth\/connect\?/);
+  assert.equal(rows.some(x=>x.sql.includes('INSERT INTO hub_oauth')),true);
+  const denied=await worker.fetch(new Request(url+'/admin/connect',{method:'POST',headers:{'cookie':cookie.split(';')[0],'content-type':'application/x-www-form-urlencoded','sec-fetch-site':'cross-site'},body:form.toString()}),browserEnv);
+  assert.equal(denied.status,403);
+  const missing=await worker.fetch(new Request(url+'/admin/connect',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:form.toString()}),browserEnv);
+  assert.equal(missing.status,403);
+});
