@@ -257,7 +257,7 @@ async function etsyConnect(req, env, url) {
     const blocks = aliases.map(alias => {
       const label = escapeAttr(alias), shopId = escapeAttr(shops[alias].shop_id);
       if (connected.has(alias)) return '<section><h3>'+label+' <span class="status">Connected</span></h3><p>Shop ID '+shopId+' — already authorized. No action needed.</p></section>';
-      return '<section><h3>'+label+' <span class="pending">Not connected</span></h3><p>Shop ID '+shopId+'</p><form method="post" action="/admin/connect"><input type="hidden" name="_csrf" value="'+csrf+'"><input type="hidden" name="shop" value="'+label+'"><label>Hub owner password<input type="password" name="password" minlength="32" autocomplete="current-password" required></label><button type="submit">Connect '+label+' on Etsy</button></form></section>';
+      return '<section><h3>'+label+' <span class="pending">Not connected</span></h3><p>Shop ID '+shopId+'</p><form method="post" action="/admin/connect" novalidate><input type="hidden" name="_csrf" value="'+csrf+'"><input type="hidden" name="shop" value="'+label+'"><label>Hub owner password<input type="password" name="password" minlength="32" autocomplete="current-password" required></label><button type="submit">Connect '+label+' on Etsy</button></form></section>';
     }).join('');
     const extra = aliases.some(alias => !connected.has(alias))
       ? '<p class="tip">If Etsy shows your previously connected shop, sign out of Etsy and sign into the account that owns the selected shop. A private window or separate browser is often easier. Etsy Seller Apps can be limited to one seller account.</p>'
