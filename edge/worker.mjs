@@ -307,6 +307,7 @@ async function etsyAdmin(req, env, url) {
   }
   return json({error:'not_found'},404);
 }
+export const ownsEtsyShop = (shop, expectedId) => Boolean(shop && typeof shop === 'object' && !Array.isArray(shop) && shop.shop_id != null && String(shop.shop_id) === String(expectedId));
 async function etsyCallback(env, url) {
   const record = await env.DB.prepare('DELETE FROM hub_oauth WHERE state=? RETURNING *').bind(await hash(url.searchParams.get('state') || '')).first();
   if (!record || record.expires < now() || !url.searchParams.get('code')) return html('<p>Invalid or expired Etsy authorization.</p>',400);
@@ -319,8 +320,10 @@ async function etsyCallback(env, url) {
   const me = await meResp.json().catch(() => ({}));
   if (!meResp.ok || !me.user_id) return html('<p>Could not verify Etsy account ownership.</p>',502);
   const shopsResp = await fetch('https://api.etsy.com/v3/application/users/'+encodeURIComponent(me.user_id)+'/shops', {headers});
-  const shops = await shopsResp.json().catch(() => ({}));
-  if (!shopsResp.ok || !shops.results?.some(s => String(s.shop_id)===String(cfg.shop_id))) return html('<p>The authorized Etsy account does not own this shop.</p>',409);
+  const shop = await shopsResp.json().catch(() => null);
+  // Etsy getShopByOwnerUserId returns ONE Shop object, not {results:[...]}. Never accept a different shop ID.
+  if (!shopsResp.ok || !shop || !shop.shop_id) return html('<p>Etsy could not verify the shop. Please retry authorization.</p>',502);
+  if (!ownsEtsyShop(shop, cfg.shop_id)) return html('<p>This Etsy account owns a different shop. Please sign in to the account for the selected shop and try again.</p>',409);
   const value = await seal(env, { ...token, expires_at: now()+Number(token.expires_in||3600)*1000, user_id:String(me.user_id) });
   const result = await env.DB.prepare('INSERT OR IGNORE INTO hub_tokens(alias,sealed,lease_owner,lease_until,updated_at) VALUES(?,?,NULL,0,?)').bind(record.alias,value,now()).run();
   if (!result.meta.changes) return html('<p>Shop already connected; existing tokens preserved.</p>',409);
