@@ -252,13 +252,26 @@ async function etsyConnect(req, env, url) {
   if (req.method === 'GET') {
     const aliases = Object.keys(readShops(env));
     const options = aliases.map(alias => '<option value="' + escapeAttr(alias) + '">' + escapeAttr(alias) + '</option>').join('');
-    return html('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Connect Etsy shop</title><style>body{font:16px system-ui;max-width:440px;margin:3rem auto;padding:1rem;line-height:1.6}label{display:block;margin:1rem 0}input,select,button{box-sizing:border-box;width:100%;font:inherit;padding:.7rem}button{cursor:pointer}</style></head><body><h2>Connect Etsy shop</h2><p>Authorize your shop on Etsy. Your existing VPS session is not modified.</p>'+(!aliases.length?'<p>First configure SHOPS_JSON with the correct Etsy shop IDs in Cloudflare.</p>':'<form method="post" action="/admin/connect"><label>Shop<select name="shop" required>'+options+'</select></label><label>Owner password<input type="password" name="password" minlength="32" autocomplete="current-password" required></label><button>Continue to Etsy</button></form>')+'</body></html>');
+    const csrf = random(24);
+    const response = html('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Connect Etsy shop</title><style>body{font:16px system-ui;max-width:440px;margin:3rem auto;padding:1rem;line-height:1.6}label{display:block;margin:1rem 0}input,select,button{box-sizing:border-box;width:100%;font:inherit;padding:.7rem}button{cursor:pointer}</style></head><body><h2>Connect Etsy shop</h2><p>Authorize your shop on Etsy. Your existing VPS session is not modified.</p>'+(!aliases.length?'<p>First configure SHOPS_JSON with the correct Etsy shop IDs in Cloudflare.</p>':'<form method="post" action="/admin/connect"><input type="hidden" name="_csrf" value="'+csrf+'"><label>Shop<select name="shop" required>'+options+'</select></label><label>Owner password<input type="password" name="password" minlength="32" autocomplete="current-password" required></label><button>Continue to Etsy</button></form>')+'</body></html>');
+    response.headers.set('set-cookie', '__Host-etsy_hub_csrf='+csrf+'; Path=/; Max-Age=900; Secure; HttpOnly; SameSite=Strict');
+    return response;
   }
   if (req.method !== 'POST') return json({error:'method_not_allowed'},405);
-  if (req.headers.get('origin') !== url.origin) return json({error:'invalid_origin'},403);
+  const origin = req.headers.get('origin');
+  if (origin && origin !== url.origin) return json({error:'invalid_origin'},403);
+  const referer = req.headers.get('referer');
+  if (referer) {
+    let ref;
+    try { ref = new URL(referer); } catch { return json({error:'invalid_referer'},403); }
+    if (ref.origin !== url.origin) return json({error:'invalid_referer'},403);
+  }
+  if (req.headers.get('sec-fetch-site') === 'cross-site') return json({error:'cross_site_form_denied'},403);
   if (Number(req.headers.get('content-length')||0)>4096) return json({error:'too_large'},413);
   const raw = await req.text();if(raw.length>4096)return json({error:'too_large'},413);
   const form = new URLSearchParams(raw);
+  const csrf = req.headers.get('cookie')?.match(/(?:^|;\s*)__Host-etsy_hub_csrf=([A-Za-z0-9_-]{32,})/)?.[1] || '';
+  if (!csrf || csrf.length > 100 || !(await same(csrf,form.get('_csrf')||''))) return json({error:'csrf_required_reload_login_page'},403);
   const ip = req.headers.get('cf-connecting-ip') || 'unknown';
   const record = await env.DB.prepare('SELECT count,until FROM mcp_failures WHERE ip=?').bind(ip).first();
   if (record && record.count>=5 && record.until>now()) return html('<p>Too many failed attempts.</p>',429);
