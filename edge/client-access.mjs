@@ -34,12 +34,12 @@ export async function listServiceClients(env) {
 export async function createServiceClient(env, request) {
   const name = String(request?.name || '').trim();
   if (name.length < 3 || name.length > 64 || !/^[a-zA-Z0-9 _.:-]+$/.test(name)) throw fault('Invalid service name', 400);
-  const scopes = [...new Set(request?.scopes || ['read'])];
+  const scopes = Array.isArray(request?.scopes || ['read']) ? [...new Set(request?.scopes || ['read'])] : [];
   if (!scopes.length || scopes.some(s => !permissions.has(s))) throw fault('Invalid scopes', 400);
   if (scopes.includes('media') && !scopes.includes('write')) throw fault('Media requires write permission', 400);
   if (scopes.includes('write') && request.confirm_writes !== true) throw fault('Explicit write confirmation required', 400);
   const configured = aliases(env);
-  const shops = [...new Set(request?.shops || [])];
+  const shops = Array.isArray(request?.shops || []) ? [...new Set(request?.shops || [])] : [];
   // Deliberate mandatory shop allowlist. Never treat omitted shop IDs as "all shops".
   if (!shops.length || shops.some(s => !configured.includes(s))) throw fault('Select existing shops explicitly', 400);
   const prefixInput = request?.path_prefixes || [];
@@ -66,6 +66,10 @@ export async function authenticateServiceClient(req,env) {
   const row = await env.DB.prepare('SELECT * FROM hub_clients WHERE id=? AND revoked_at IS NULL').bind(match[1]).first();
   if (!row) return null;
   if ((await digest(token)) !== row.token_hash) return null;
+  if (!row.last_used_at || row.last_used_at < Date.now()-300000) {
+    // Best-effort activity time for owner diagnostics; never fail a valid request if audit metadata cannot be updated.
+    await env.DB.prepare('UPDATE hub_clients SET last_used_at=? WHERE id=? AND (last_used_at IS NULL OR last_used_at<?)').bind(Date.now(),row.id,Date.now()-300000).run().catch(()=>{});
+  }
   return readonlyDetails(row);
 }
 export function requireServiceAccess(client,env,body,method,uploads = false) {
