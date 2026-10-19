@@ -166,32 +166,20 @@ test('Etsy OAuth decline shows human-readable error', async () => {
   assert.match(await res.text(),/Seller app limit/);
 });
 
-test('unconfigured second Seller App presents setup steps rather than a broken OAuth button',async () => {
-  const local = {
-    ...onlyOwner,
-    SHOPS_JSON: '{"main":{"shop_id":"23207964"},"second":{"shop_id":"33448161"}}',
-    ETSY_SECOND_CLIENT_ID: 'SET_SECOND_ETSY_CLIENT_ID_HERE',
-    ETSY_SECOND_CLIENT_SECRET: 'SET_SECOND_ETSY_CLIENT_SECRET_HERE',
-    DB: {prepare:()=>({all:async()=>({results:[{alias:'main'}]})})}
-  };
-  const resp=await worker.fetch(req('/admin/connect'),local);
-  assert.equal(resp.status,200);
-  const html=await resp.text();
-  assert.match(html,/Separate Etsy app needed/);
-  assert.match(html,/ETSY_SECOND_CLIENT_ID/);
-  assert.doesNotMatch(html,/Connect second on Etsy/);
-  assert.match(html,/main <span class="status">Connected/);
-});
-test('second Etsy app can be configured independently and exposes its login button',async () => {
-  const local = {
-    ...onlyOwner,
-    SHOPS_JSON: '{"main":{"shop_id":"23207964"},"second":{"shop_id":"33448161"}}',
-    ETSY_SECOND_CLIENT_ID:'second-app-key-value',
-    ETSY_SECOND_CLIENT_SECRET:'second-app-secret-value',
+test('existing Etsy API app grants work for the second shop without separate app keys', async () => {
+  const local={...onlyOwner,
+    SHOPS_JSON:'{"main":{"shop_id":"23207964"},"second":{"shop_id":"33448161"}}',
+    ETSY_CLIENT_ID:'older-approved-personal-app',
+    ETSY_CLIENT_SECRET:'shared-key',
+    ETSY_SECOND_CLIENT_ID:'SET_SECOND_ETSY_CLIENT_ID_HERE',
+    ETSY_SECOND_CLIENT_SECRET:'SET_SECOND_ETSY_CLIENT_SECRET_HERE',
     DB:{prepare:()=>({all:async()=>({results:[{alias:'main'}]})})}
   };
   const resp=await worker.fetch(req('/admin/connect'),local);
-  const body=await resp.text();
-  assert.match(body,/Connect second on Etsy/);
-  assert.doesNotMatch(body,/second-app-secret-value/);
+  assert.equal(resp.status,200);
+  const page=await resp.text();
+  assert.match(page,/Connect second on Etsy/);
+  assert.doesNotMatch(page,/Separate Etsy app needed/);
+  assert.doesNotMatch(page,/SET_SECOND_ETSY_CLIENT/);
+  assert.match(page,/main <span class="status">Connected/);
 });
