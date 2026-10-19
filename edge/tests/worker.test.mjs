@@ -240,3 +240,29 @@ test('Cloudflare Etsy fetch wrapper never binds native fetch to EtsyClient as re
     globalThis.fetch = oldFetch;
   }
 });
+
+
+test('ChatGPT OAuth metadata fetch uses Cloudflare-supported manual redirects and rejects metadata redirects',async()=>{
+  const client='https://chatgpt.com/oauth/test-connector/client.json';
+  const callback='https://chatgpt.com/connector/oauth/test-connector';
+  const query=new URLSearchParams({client_id:client,redirect_uri:callback,response_type:'code',code_challenge_method:'S256',code_challenge:'a'.repeat(43),resource:url+'/mcp',scope:'etsy',state:'test-state'});
+  const old=globalThis.fetch;
+  const authEnv={MCP_OWNER_PASSWORD:'test-owner-secret-at-least-thirty-two-characters'};
+  try{
+    globalThis.fetch=async (target,options)=>{
+      assert.equal(target,client);
+      assert.equal(options.redirect,'manual');
+      return new Response(JSON.stringify({client_id:client,client_name:'ChatGPT',redirect_uris:[callback]}),{status:200,headers:{'content-type':'application/json'}});
+    };
+    const response=await worker.fetch(new Request(url+'/oauth/authorize?'+query),authEnv);
+    assert.equal(response.status,200);
+    assert.match(await response.text(),/Connect Etsy Hub/);
+    globalThis.fetch=async (_target,options)=>{
+      assert.equal(options.redirect,'manual');
+      return new Response(null,{status:302,headers:{location:'https://evil.example/client.json'}});
+    };
+    const rejected=await worker.fetch(new Request(url+'/oauth/authorize?'+query),authEnv);
+    assert.equal(rejected.status,400);
+    assert.equal((await rejected.json()).error,'unauthorized_client');
+  }finally{globalThis.fetch=old;}
+});
