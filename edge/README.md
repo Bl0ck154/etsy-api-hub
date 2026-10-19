@@ -11,7 +11,7 @@ This Worker reuses the repository's `EtsyHub`, `EtsyClient`, `EtsyMcpAdapter`, `
 ## Setup
 
 1. Deploy on Malinary, never the primary or Oscar account. Create D1 in the **EU jurisdiction** and apply `edge/migrations/0001_init.sql`.
-2. In `edge/wrangler.toml`, set `SHOPS_JSON` to a map of actual shop aliases and verified Etsy shop IDs (example: `{"main":{"shop_id":"12345678"}}`). Avoid placeholder IDs. For multiple Etsy apps configure `ETSY_APPS_JSON` as a Cloudflare secret mapping each alias to `{"client_id":"...","secret":"..."}`.
+2. The existing VPS was queried via `etsyctl shops` (nonsecret IDs only), and staging is preconfigured for both `main` / `second` in `SHOPS_JSON`. No shop-ID entry is needed. For multiple Etsy apps configure `ETSY_APPS_JSON` as a Worker secret mapping each alias to `{"client_id":"...","secret":"..."}`.
 3. Only **three Worker secrets** are required for a single Etsy application, under Settings → Variables and Secrets:
    - `ETSY_CLIENT_ID`: your Etsy app client ID / keystring.
    - `ETSY_CLIENT_SECRET`: the matching Etsy app shared secret.
@@ -22,8 +22,25 @@ This Worker reuses the repository's `EtsyHub`, `EtsyClient`, `EtsyMcpAdapter`, `
 4. In Etsy's app configuration, register `https://etsy-api-hub-malinary.malinary-art.workers.dev/admin/oauth/callback` (or the chosen final host) as an exact OAuth redirect URI.
 5. Open `https://etsy-api-hub-malinary.malinary-art.workers.dev/admin/connect`, select the shop, enter the same owner password, and follow the Etsy OAuth screen. No cURL or additional admin token is needed. The callback verifies that the account owns the configured shop ID, stores encrypted credentials, and refuses to replace an existing chain.
 6. GET `/admin/status` with your owner password as a Bearer token, if diagnostics are necessary. Test `/health`, `/gpt/openapi.json`, and read-only MCP `tools/list`, `etsy_shops`, `etsy_listing_get` before enabling writes.
-7. Connect ChatGPT MCP to `https://etsy-api-hub-malinary.malinary-art.workers.dev/mcp` with OAuth; owner login is restricted to ChatGPT metadata client IDs. GPT Actions can import `/gpt/openapi.json` and use the same owner password as the Bearer API key, though using a separate optional `ADMIN_BEARER` is recommended when exposing Actions beyond your private account.
-8. Only after a verified live read and a reviewed backup/rollback test, change `ENABLE_WRITES` to `true`, redeploy, and switch the existing ChatGPT connector.
+7. Connect ChatGPT MCP to `https://etsy-api-hub-malinary.malinary-art.workers.dev/mcp` with OAuth; owner login is restricted to ChatGPT metadata client IDs. GPT Actions can import `/gpt/openapi.json`, but must use a **dedicated scoped service token** (not the owner password). ChatGPT MCP uses its separate password-protected OAuth flow.
+8. Only after a verified live read and a reviewed backup/rollback test, change `ENABLE_WRITES` to `true`, redeploy, and switch the existing ChatGPT connector. Do **not** give third-party projects the owner password.
+
+## Service clients — no day-to-day token maintenance
+
+Every backend project or GPT Action receives its own revocable `hubc_` bearer credential, with permissions limited to selected Etsy shops and exact Etsy API path prefixes. Token hashes (not plaintext tokens) are held in D1. Scopes: `read`, `write`, `media` (media also requires write); mutation requires explicit owner confirmation **and** the Worker-level `ENABLE_WRITES=true` switch.
+
+Owner-only API routes (authenticate with `MCP_OWNER_PASSWORD` or optional independent `ADMIN_BEARER`):
+- `GET /admin/clients` — nonsecret inventory of clients and last-used timestamps.
+- `POST /admin/clients` — register one project. Example `{"name":"Order Forge reporting","scopes":["read"],"shops":["main"],"path_prefixes":["/application/shops/23207964/receipts"]}`. A `token` is returned **once**, then should be installed as a secret in the downstream project. For `write`, additionally set `"confirm_writes":true`.
+- `DELETE /admin/clients/{uuid}` — immediately revoke a compromised or retired client.
+- `POST /v1/request` — service API with `{"shop":"main","method":"GET","path":"/application/shops/23207964/receipts"}`, plus supported body/query/form/files fields.
+- `POST /gpt/read` and `POST /gpt/write` — compatible GPT Actions requiring the dedicated client token.
+
+**Do not distribute the owner password as an API key to other projects.** ChatGPT MCP OAuth continues to have owner-level rights, with unknown/new MCP tools treated as writes until explicitly audited.
+
+The Worker has a daily Cloudflare Cron Trigger at **03:17 UTC** to prune expired MCP authorizations, failed-password counters, and audit entries older than 90 days. Etsy access tokens refresh on demand behind a D1 lease. Individual backend tokens have no short-lived expiration to rotate; revoke any token when a connected project is retired or compromised.
+
+All currently deployed integrations remain on VPS. Enrolling a backend in Cloudflare requires an explicit future cutover. No existing consumer automatically moves when this Worker is deployed.
 
 ## Safety
 
@@ -34,7 +51,8 @@ This Worker reuses the repository's `EtsyHub`, `EtsyClient`, `EtsyMcpAdapter`, `
 - Browser and local-media pipelines remain on VPS; this Worker accepts bounded base64 multipart inputs only.
 - Cloudflare Workers body size, memory and CPU limits still apply. Very large uploads may need R2 multipart later.
 - **Do not expose** the owner password or admin API through GitHub Actions logs or repository files. The web authorization page uses password verification and D1-backed rate limiting.
-- Review CORS, WAF rate limiting, allowed OAuth clients and write permissions before production cutover.
+- Cloudflare service credentials are checked against the exact shop alias **and** numeric shop ID in Etsy URL paths; path prefixes are segment-boundary-checked.
+- Review WAF rate limiting, allowed OAuth clients and write permissions before production cutover.
 
 ## Local commands
 
