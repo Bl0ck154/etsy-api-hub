@@ -128,8 +128,8 @@ test('login works when Firefox/privacy browsers omit Origin using strict same-si
   const form=new URLSearchParams({shop:'main',password:onlyOwner.MCP_OWNER_PASSWORD,_csrf:nonce});
   const request=new Request(url+'/admin/connect',{method:'POST',headers:{'cookie':cookie.split(';')[0],'content-type':'application/x-www-form-urlencoded','sec-fetch-site':'same-origin'},body:form.toString()});
   const response=await worker.fetch(request,browserEnv);
-  assert.equal(response.status,302);
-  assert.match(response.headers.get('location'),/^https:\/\/www\.etsy\.com\/oauth\/connect\?/);
+  assert.equal(response.status,200);
+  assert.match(await response.text(),/href="https:\/\/www\.etsy\.com\/oauth\/connect\?/);
   assert.equal(rows.some(x=>x.sql.includes('INSERT INTO hub_oauth')),true);
   const denied=await worker.fetch(new Request(url+'/admin/connect',{method:'POST',headers:{'cookie':cookie.split(';')[0],'content-type':'application/x-www-form-urlencoded','sec-fetch-site':'cross-site'},body:form.toString()}),browserEnv);
   assert.equal(denied.status,403);
@@ -209,8 +209,9 @@ test('second shop OAuth redirects with the original shared Etsy app and its own 
     method:'POST',headers:{'cookie':cookie,'content-type':'application/x-www-form-urlencoded'},
     body:body.toString()
   }),e);
-  assert.equal(response.status,302);
-  const auth=new URL(response.headers.get('location'));
+  assert.equal(response.status,200);
+  const pageBody=await response.text();
+  const auth=new URL(pageBody.match(/href="([^"]+)"/)?.[1]?.replace(/&amp;/g,'&'));
   assert.equal(auth.host,'www.etsy.com');
   assert.equal(auth.pathname,'/oauth/connect');
   assert.equal(auth.searchParams.get('client_id'),'approved-existing-keystring');
