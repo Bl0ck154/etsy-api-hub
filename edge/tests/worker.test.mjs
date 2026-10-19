@@ -188,7 +188,7 @@ test('existing Etsy API app grants work for the second shop without separate app
 test('second shop OAuth redirects with the original shared Etsy app and its own state', async () => {
   const statements = [];
   const DB={prepare(sql){
-    if(sql.includes('SELECT alias FROM hub_tokens'))return {all:async()=>({results:[{alias:'main'}]})};
+    if(sql.trim()==='SELECT alias FROM hub_tokens')return {all:async()=>({results:[{alias:'main'}]})};
     return {bind(...params){return {
       first:async()=>null,
       run:async()=>{statements.push(sql);return {meta:{changes:1}}}
