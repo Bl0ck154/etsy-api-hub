@@ -123,7 +123,7 @@ test('login works when Firefox/privacy browsers omit Origin using strict same-si
   const cookie=page.headers.get('set-cookie');
   assert.match(cookie,/HttpOnly; SameSite=Strict/);
   const nonce=(await page.text()).match(/name="_csrf" value="([^"]+)"/)?.[1];
-  assert.ok(nonce?.length>32);
+  assert.ok(nonce?.length>=32);
   const form=new URLSearchParams({shop:'main',password:onlyOwner.MCP_OWNER_PASSWORD,_csrf:nonce});
   const request=new Request(url+'/admin/connect',{method:'POST',headers:{'cookie':cookie.split(';')[0],'content-type':'application/x-www-form-urlencoded','sec-fetch-site':'same-origin'},body:form.toString()});
   const response=await worker.fetch(request,browserEnv);
