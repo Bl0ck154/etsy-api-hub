@@ -109,6 +109,8 @@ class EdgeTokenStore {
     throw fail('TOKEN_REFRESH_BUSY', 503);
   }
 }
+// Cloudflare global fetch is sensitive to the call receiver. Do not pass it as a bare method reference.
+export const cloudflareEtsyFetch = (...args) => fetch(...args);
 class EdgeHub extends EtsyHub {
   constructor(env) {
     const shops = readShops(env);
@@ -117,7 +119,7 @@ class EdgeHub extends EtsyHub {
   }
   client(alias) {
     const shop = this.shop(alias);
-    if (!this.clients.has(shop.alias)) this.clients.set(shop.alias, new EtsyClient({ tokenStore: new EdgeTokenStore(this.env, shop.alias) }));
+    if (!this.clients.has(shop.alias)) this.clients.set(shop.alias, new EtsyClient({ tokenStore: new EdgeTokenStore(this.env, shop.alias), fetchImpl: cloudflareEtsyFetch }));
     return this.clients.get(shop.alias);
   }
   async audit({ shop, method, apiPath, status, operation, ok }) {
