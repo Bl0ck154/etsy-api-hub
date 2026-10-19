@@ -183,3 +183,37 @@ test('existing Etsy API app grants work for the second shop without separate app
   assert.doesNotMatch(page,/SET_SECOND_ETSY_CLIENT/);
   assert.match(page,/main <span class="status">Connected/);
 });
+
+
+test('second shop OAuth redirects with the original shared Etsy app and its own state', async () => {
+  const statements = [];
+  const DB={prepare(sql){
+    if(sql.includes('SELECT alias FROM hub_tokens'))return {all:async()=>({results:[{alias:'main'}]})};
+    return {bind(...params){return {
+      first:async()=>null,
+      run:async()=>{statements.push(sql);return {meta:{changes:1}}}
+    }}};
+  }};
+  const e={...onlyOwner, DB,
+    SHOPS_JSON:'{"main":{"shop_id":"23207964"},"second":{"shop_id":"33448161"}}',
+    ETSY_CLIENT_ID:'approved-existing-keystring',
+    ETSY_CLIENT_SECRET:'dummy-shared-secret',
+    ETSY_SECOND_CLIENT_ID:'SET_SECOND_ETSY_CLIENT_ID_HERE',
+    ETSY_SECOND_CLIENT_SECRET:'SET_SECOND_ETSY_CLIENT_SECRET_HERE'
+  };
+  const page=await worker.fetch(req('/admin/connect'),e);
+  const csrf=(await page.text()).match(/name="_csrf" value="([^"]+)"/)?.[1];
+  const cookie=page.headers.get('set-cookie').split(';')[0];
+  const body=new URLSearchParams({shop:'second',password:onlyOwner.MCP_OWNER_PASSWORD,_csrf:csrf});
+  const response=await worker.fetch(new Request(url+'/admin/connect',{
+    method:'POST',headers:{'cookie':cookie,'content-type':'application/x-www-form-urlencoded'},
+    body:body.toString()
+  }),e);
+  assert.equal(response.status,302);
+  const auth=new URL(response.headers.get('location'));
+  assert.equal(auth.host,'www.etsy.com');
+  assert.equal(auth.pathname,'/oauth/connect');
+  assert.equal(auth.searchParams.get('client_id'),'approved-existing-keystring');
+  assert.equal(auth.searchParams.get('redirect_uri'),url+'/admin/oauth/callback');
+  assert.ok(statements.some(q=>q.includes('INSERT INTO hub_oauth')));
+});
