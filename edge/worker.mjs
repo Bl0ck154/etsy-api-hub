@@ -40,9 +40,19 @@ const readShops = env => {
   }
   return shops;
 };
+const secondAppReady = env => Boolean(
+  env.ETSY_SECOND_CLIENT_ID && env.ETSY_SECOND_CLIENT_SECRET &&
+  !String(env.ETSY_SECOND_CLIENT_ID).startsWith('SET_SECOND_') &&
+  !String(env.ETSY_SECOND_CLIENT_SECRET).startsWith('SET_SECOND_')
+);
 const appFor = (env, alias) => {
   const apps = JSON.parse(env.ETSY_APPS_JSON || '{}');
-  const credentials = apps[alias] || { client_id: env.ETSY_CLIENT_ID, secret: env.ETSY_CLIENT_SECRET };
+  const shared = { client_id: env.ETSY_CLIENT_ID, secret: env.ETSY_CLIENT_SECRET };
+  const second = secondAppReady(env) ? { client_id: env.ETSY_SECOND_CLIENT_ID, secret: env.ETSY_SECOND_CLIENT_SECRET } : null;
+  // Etsy Seller Apps authorize only the registered seller's shop. Do not try main's Seller App for second.
+  if (alias === 'second' && !apps.second && !second && env.ETSY_ALLOW_SHARED_APP_FOR_SECOND !== 'true')
+    throw fail('ETSY_SECOND_APP_NOT_CONFIGURED', 503);
+  const credentials = apps[alias] || (alias === 'second' && second) || shared;
   if (!credentials.client_id || !credentials.secret) throw fail('ETSY_APP_NOT_CONFIGURED', 503);
   return credentials;
 };
@@ -257,7 +267,10 @@ async function etsyConnect(req, env, url) {
     const blocks = aliases.map(alias => {
       const label = escapeAttr(alias), shopId = escapeAttr(shops[alias].shop_id);
       if (connected.has(alias)) return '<section><h3>'+label+' <span class="status">Connected</span></h3><p>Shop ID '+shopId+' — already authorized. No action needed.</p></section>';
-      return '<section><h3>'+label+' <span class="pending">Not connected</span></h3><p>Shop ID '+shopId+'</p><form method="post" action="/admin/connect" novalidate><input type="hidden" name="_csrf" value="'+csrf+'"><input type="hidden" name="shop" value="'+label+'"><label>Hub owner password<input type="password" name="password" minlength="32" autocomplete="current-password" required></label><button type="submit">Connect '+label+' on Etsy</button></form></section>';
+      if (alias === 'second' && !secondAppReady(env) && env.ETSY_ALLOW_SHARED_APP_FOR_SECOND !== 'true' && !JSON.parse(env.ETSY_APPS_JSON || '{}').second) {
+        return '<section><h3>'+label+' <span class="pending">Separate Etsy app needed</span></h3><p>Shop ID '+shopId+'</p><p>The existing key connects only the first Seller App. Etsy restricts Seller Apps to their registered shop. To connect this shop, open its Etsy account, create its own Seller App at <a href="https://www.etsy.com/developers/your-apps" target="_blank" rel="noopener noreferrer">Etsy Developer Portal</a>, add the same callback URL, and replace the prepared Cloudflare Secrets <code>ETSY_SECOND_CLIENT_ID</code> and <code>ETSY_SECOND_CLIENT_SECRET</code> with that app’s keys. Then reload this page. No further code changes needed.</p></section>';
+      }
+      return '<section><h3>'+label+' <span class="pending">Not connected</span></h3><p>Shop ID '+shopId+'</p><form method="post" action="/admin/connect" novalidate><input type="hidden" name="_csrf" value="'+csrf+'"><input type="hidden" name="shop" value="'+label+'"><label>Hub owner password<input type="password" name="password" autocomplete="current-password" placeholder="Enter Hub owner password"></label><button type="submit">Connect '+label+' on Etsy</button></form></section>';
     }).join('');
     const extra = aliases.some(alias => !connected.has(alias))
       ? '<p class="tip">If Etsy shows your previously connected shop, sign out of Etsy and sign into the account that owns the selected shop. A private window or separate browser is often easier. Etsy Seller Apps can be limited to one seller account.</p>'
