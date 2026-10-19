@@ -337,7 +337,21 @@ export default {
       const url = new URL(req.url), path = url.pathname, origin = url.origin;
       if (path === '/health') {
         const shops = readShops(env);
-        return json({ ok: true, service: 'etsy-api-hub-cloudflare', account: 'malinary-art', configured_shops: Object.keys(shops).length, oauth_ready: Boolean(env.MCP_OWNER_PASSWORD && env.MCP_OWNER_PASSWORD.length >= 32), etsy_ready: Boolean((env.TOKEN_ENCRYPTION_KEY || env.MCP_OWNER_PASSWORD) && (env.ETSY_APPS_JSON || env.ETSY_CLIENT_ID)) });
+        const configured_shops = Object.keys(shops).length;
+        // Secret bindings alone are not proof that Etsy shops finished their OAuth flow.
+        let connected_shops = 0;
+        if (env.DB) {
+          const result = await env.DB.prepare('SELECT COUNT(*) AS count FROM hub_tokens').first();
+          connected_shops = Number(result?.count || 0);
+        }
+        const oauth_ready = Boolean(env.MCP_OWNER_PASSWORD && env.MCP_OWNER_PASSWORD.length >= 32);
+        const etsy_ready = Boolean(configured_shops && connected_shops === configured_shops &&
+          (env.TOKEN_ENCRYPTION_KEY || env.MCP_OWNER_PASSWORD) &&
+          (env.ETSY_APPS_JSON || (env.ETSY_CLIENT_ID && env.ETSY_CLIENT_SECRET)));
+        return json({ ok: true, service: 'etsy-api-hub-cloudflare',
+          account: 'malinary-art', configured_shops, connected_shops, oauth_ready,
+          etsy_ready, writes_enabled: env.ENABLE_WRITES === 'true',
+          state: etsy_ready ? 'connected' : 'setup_required' });
       }
       if (path.startsWith('/.well-known/') || path === '/oauth/authorize' || path === '/oauth/token') {
         const resp = await oauth(req, env, url); if (resp) return resp;
