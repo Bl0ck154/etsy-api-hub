@@ -68,7 +68,7 @@ const onlyOwner = {
   SHOPS_JSON: '{"main":{"shop_id":"12345678"}}',
   ENABLE_WRITES: 'false',
   MCP_OWNER_PASSWORD: 'this-is-a-test-owner-password-very-long-not-production',
-  DB: {prepare: () => ({all: async () => ({results:[]})})}
+  DB: {prepare: () => ({all: async () => ({results:[]}), first:async()=>({count:0})})}
 };
 test('one strong owner password unlocks read-only MCP without extra key secrets', async () => {
   const r = await worker.fetch(req('/mcp', { jsonrpc:'2.0',id:51,method:'tools/list' }, onlyOwner.MCP_OWNER_PASSWORD), onlyOwner);
@@ -154,8 +154,8 @@ test('shop setup shows connected main, separate actionable second shop, no redun
   assert.equal(page.status,200);
   const body=await page.text();
   assert.match(body,/main <span class="status">Connected/);
-  assert.match(body,/second <span class="pending">Not connected/);
-  assert.match(body,/Connect second on Etsy/);
+  assert.match(body,/secondary <span class="pending">Not connected/);
+  assert.match(body,/Connect secondary on Etsy/);
   assert.doesNotMatch(body,/Connect main on Etsy/);
   assert.match(body,/private window or separate browser/);
 });
