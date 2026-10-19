@@ -3,6 +3,7 @@ import { EtsyClient } from '../src/client.mjs';
 import { EtsyMcpAdapter } from '../src/mcp-adapter.mjs';
 import { ETSY_MCP_TOOLS } from '../src/mcp-tools.mjs';
 import { buildGptOpenApi, gptRead, gptWrite } from '../src/gpt-adapter.mjs';
+import { listServiceClients, createServiceClient, revokeServiceClient, authenticateServiceClient, requireServiceAccess } from './client-access.mjs';
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -178,7 +179,8 @@ async function authorized(req, env, resource) {
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
   return Boolean(token && (env.MCP_SIGNING_KEY || env.MCP_OWNER_PASSWORD) && await verify(env, token, 'access', resource));
 }
-const mcpWrite = name => /(_write|_create|_update|_delete|_set|_upload|_multipart)$/.test(name) || ['etsy_listing_create','etsy_inventory_set','etsy_personalization_set','etsy_request_write','etsy_request_multipart','etsy_variation_images_set','etsy_section_write','etsy_return_policy_write','etsy_processing_profile_write','etsy_shipping_profile_write','etsy_listing_property_write','etsy_listing_translation_write','etsy_holiday_preference_update'].includes(name);
+const MCP_READ_ONLY_TOOLS = new Set(["etsy_capabilities","etsy_shops","etsy_openapi_ping","etsy_shop_get","etsy_shop_search","etsy_shop_by_owner","etsy_listings_list","etsy_listing_get","etsy_listings_batch_get","etsy_listings_batch_inventory","etsy_listings_batch_shipping","etsy_listing_product_get","etsy_listing_offering_get","etsy_orders_list","etsy_order_get","etsy_transactions_list","etsy_transaction_get","etsy_reviews_list","etsy_payments_get","etsy_payment_by_receipt","etsy_ledger_entries","etsy_ledger_entry_get","etsy_payments_by_ledger_entries","etsy_personalization_get","etsy_inventory_get","etsy_images_list","etsy_image_get","etsy_videos_list","etsy_video_get","etsy_files_list","etsy_file_get","etsy_listing_properties_get","etsy_listing_translation_get","etsy_variation_images_get","etsy_shipping_profiles_list","etsy_shipping_profile_get","etsy_processing_profiles_list","etsy_processing_profile_get","etsy_return_policies_list","etsy_return_policy_get","etsy_sections_list","etsy_section_get","etsy_taxonomy_get","etsy_production_partners","etsy_holiday_preferences_list","etsy_shipping_carriers","etsy_user_me","etsy_user_get","etsy_user_addresses_list","etsy_user_address_get","etsy_request_read"]);
+const mcpWrite = name => !MCP_READ_ONLY_TOOLS.has(name);
 async function oauth(req, env, url) {
   const origin = url.origin, resource = origin + '/mcp', path = url.pathname;
   if (path === '/.well-known/oauth-protected-resource' || path === '/.well-known/oauth-protected-resource/mcp') return json({ resource, authorization_servers: [origin], scopes_supported: [scope] });
@@ -277,6 +279,15 @@ async function etsyAdmin(req, env, url) {
     const body = await getBody(req,4096);
     return json(await beginEtsyAuthorization(env,url,body.shop || new EdgeHub(env).config.default_shop));
   }
+  if (url.pathname === '/admin/clients' && req.method === 'GET') {
+    return json({clients: await listServiceClients(env)});
+  }
+  if (url.pathname === '/admin/clients' && req.method === 'POST') {
+    return json(await createServiceClient(env,await getBody(req,8192)),201);
+  }
+  if (/^\/admin\/clients\/[0-9a-f-]{36}$/.test(url.pathname) && req.method === 'DELETE') {
+    return json({revoked:await revokeServiceClient(env,url.pathname.split('/').pop())});
+  }
   if (url.pathname === '/admin/status' && req.method === 'GET') {
     const rows = await env.DB.prepare('SELECT alias,updated_at FROM hub_tokens ORDER BY alias').all();
     return json({shops:readShops(env),connected:rows.results});
@@ -302,7 +313,25 @@ async function etsyCallback(env, url) {
   if (!result.meta.changes) return html('<p>Shop already connected; existing tokens preserved.</p>',409);
   return html('<h2>Etsy shop connected</h2><p>Authorization saved securely. You can close this page.</p>');
 }
+// Ephemeral authorization records and audit metadata are pruned automatically.
+export async function maintenance(env) {
+  const ts = now();
+  const changes = [];
+  const rules = [
+    ['DELETE FROM hub_oauth WHERE expires<?',ts],
+    ['DELETE FROM mcp_codes WHERE expires<?',ts],
+    ['DELETE FROM mcp_refresh WHERE expires<?',ts],
+    ['DELETE FROM mcp_failures WHERE until<?',ts-86400000],
+    ['DELETE FROM hub_audit WHERE at<?',ts-90*86400000]
+  ];
+  for (const [sql,before] of rules) {
+    const r=await env.DB.prepare(sql).bind(before).run();
+    changes.push(r.meta?.changes || 0);
+  }
+  return {ok:true,records_pruned:changes.reduce((a,b)=>a+b,0)};
+}
 export default {
+  async scheduled(controller,env,ctx) { await maintenance(env); },
   async fetch(req, env) {
     try {
       const url = new URL(req.url), path = url.pathname, origin = url.origin;
@@ -341,11 +370,19 @@ export default {
         }
         return json({jsonrpc:'2.0',id,error:{code:-32601,message:'Method not found'}},400);
       }
-      if ((path === '/gpt/read' || path === '/gpt/write') && req.method === 'POST') {
-        if (!await authBearer(req,env)) return json({error:'unauthorized'},401);
-        if (path === '/gpt/write' && env.ENABLE_WRITES !== 'true') return json({error:'writes_disabled'},403);
-        const data = await (path === '/gpt/read' ? gptRead : gptWrite)(new EdgeHub(env),await getBody(req));
-        return json({ok:true,data:data.data,meta:data.meta});
+      if ((path === '/gpt/read' || path === '/gpt/write' || path === '/v1/request') && req.method === 'POST') {
+        // Service credentials are distinct from MCP OAuth and owner/admin secrets.
+        const client = await authenticateServiceClient(req,env);
+        if (!client) return json({error:'service_token_required'},401);
+        const body = await getBody(req), method = path === '/gpt/read' ? 'GET' : path === '/gpt/write' ? body.method : body.method || 'GET';
+        const hasFiles = Boolean(body.multipart || body.files?.length);
+        const allowed = requireServiceAccess(client,env,body,method,hasFiles);
+        const hub = new EdgeHub(env);
+        let result;
+        if (path === '/gpt/read') result = await gptRead(hub,{...body,shop:allowed.shop});
+        else if (path === '/gpt/write') result = await gptWrite(hub,{...body,shop:allowed.shop});
+        else result = await hub.request({shop:allowed.shop,method:allowed.method,apiPath:allowed.apiPath,query:body.query,body:body.body,form:body.form,files:body.files,multipart:hasFiles,operation:'service.' + client.id});
+        return json({ok:true,data:result.data,meta:result.meta});
       }
       return json({error:'not_found'},404);
     } catch (e) {
