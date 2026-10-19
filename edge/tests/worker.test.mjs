@@ -218,3 +218,25 @@ test('second shop OAuth redirects with the original shared Etsy app and its own 
   assert.equal(auth.searchParams.get('redirect_uri'),url+'/admin/oauth/callback');
   assert.ok(statements.some(q=>q.includes('INSERT INTO hub_oauth')));
 });
+
+
+test('Cloudflare Etsy fetch wrapper never binds native fetch to EtsyClient as receiver', async () => {
+  const { cloudflareEtsyFetch } = await import('../worker.mjs');
+  const oldFetch = globalThis.fetch;
+  let invoked = false;
+  try {
+    globalThis.fetch = function(url, options) {
+      assert.equal(this, undefined);
+      assert.equal(url, 'https://api.etsy.com/v3/application/shops/23207964');
+      assert.equal(options.method, 'GET');
+      invoked = true;
+      return Promise.resolve(new Response('{}',{status:200}));
+    };
+    const result = await cloudflareEtsyFetch.call({unintendedReceiver:'client'},
+      'https://api.etsy.com/v3/application/shops/23207964',{method:'GET'});
+    assert.equal(result.status,200);
+    assert.equal(invoked,true);
+  } finally {
+    globalThis.fetch = oldFetch;
+  }
+});
