@@ -57,7 +57,7 @@ test('MCP consequential write is rejected during cutover', async () => {
 });
 test('GPT consequential write is rejected during cutover', async () => {
   const r = await worker.fetch(req('/gpt/write', {shop:'main',method:'DELETE',path:'/application/listings/1'}),env);
-  assert.equal(r.status,403);
+  assert.equal(r.status,401); // GPT Actions now require dedicated scoped service tokens.
 });
 test('owner bootstrap routes require admin bearer', async () => {
   const r = await worker.fetch(req('/admin/status',undefined,''),env);
