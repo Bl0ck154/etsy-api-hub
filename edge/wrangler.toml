@@ -11,5 +11,8 @@ database_id = "d5cc66f8-aaae-4039-9780-ab569d836762"
 migrations_dir = "migrations"
 
 [vars]
-SHOPS_JSON = "{}"
+SHOPS_JSON = '{ "main": {"shop_id":"23207964"}, "second": {"shop_id":"33448161"} }'
 ENABLE_WRITES = "false"
+
+[triggers]
+crons = ["17 3 * * *"]
