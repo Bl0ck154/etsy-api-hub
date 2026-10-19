@@ -296,7 +296,7 @@ async function etsyConnect(req, env, url) {
   const requested = form.get('shop');
   if (!requested || !Object.prototype.hasOwnProperty.call(readShops(env),requested)) return json({error:'unknown_shop'},400);
   const data = await beginEtsyAuthorization(env,url,requested);
-  return redirect(data.authorization_url);
+  return html('<h2>Step 1 completed</h2><p>Cloudflare accepted your request.</p><p><a href="'+escapeAttr(data.authorization_url)+'">Open Etsy authorization</a></p>');
 }
 async function etsyAdmin(req, env, url) {
   if (!await authBearer(req, env)) return json({error:'unauthorized'},401);
