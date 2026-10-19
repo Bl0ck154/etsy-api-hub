@@ -78,6 +78,9 @@ export function requireServiceAccess(client,env,body,method,uploads = false) {
   const alias = body?.shop || valid[0];
   if (!alias || !client.shops.includes(alias)) throw fault('Shop access denied',403);
   const apiPath = normalizeApiPath(body?.path || body?.apiPath);
+  const config = parseJson(env.SHOPS_JSON || '{}') || {};
+  const shopInPath = /^\/application\/shops\/(\d+)(?:\/|$)/.exec(apiPath);
+  if (shopInPath && String(config[alias]?.shop_id) !== shopInPath[1]) throw fault('Cannot access a different Etsy shop ID with this client',403);
   // Match at path segment boundaries; /receipts/1 never grants /receipts/10.
   if (!client.path_prefixes.some(prefix => apiPath === prefix || apiPath.startsWith(prefix + '/'))) throw fault('Etsy endpoint not permitted for this service',403);
   const verb = String(method || body?.method || 'GET').toUpperCase();
