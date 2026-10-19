@@ -7,7 +7,7 @@ const fakeDb = () => {
   return {
     clients,
     prepare(sql) {
-      return { bind(...params) {
+      const action = (...params) => {
         return {
           async run() {
             if (sql.startsWith('INSERT INTO hub_clients')) {
@@ -36,7 +36,8 @@ const fakeDb = () => {
             throw new Error('Unexpected fake SQL all: '+sql);
           }
         };
-      }};
+      };
+      return {bind: (...params)=>action(...params), all:()=>action().all()};
     }
   };
 };
