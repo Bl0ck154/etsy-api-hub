@@ -54,11 +54,11 @@ test('tokens are scoped, random and stored as non-reversible hashes',async () =>
   assert.equal(a.name,'Order Forge read');
   assert.deepEqual(requireServiceAccess(a,env,caseRequest(),'GET'),{shop:'main',method:'GET',apiPath:'/application/shops/23207964/receipts'});
   assert.throws(() => requireServiceAccess(a,env,caseRequest('second'),'GET'),/Shop access denied/);
+  assert.throws(() => requireServiceAccess(a,env,caseRequest('main','/application/shops/23207964/receiptsExtra'),'GET'),/endpoint not permitted/);
+  assert.throws(() => requireServiceAccess(a,env,caseRequest('main','/application/shops/23207964/listings'),'GET'),/endpoint not permitted/);
   // Shop alias restrictions must also check numeric IDs in raw Etsy URLs.
   a.path_prefixes.push('/application/shops');
   assert.throws(() => requireServiceAccess(a,env,caseRequest('main','/application/shops/33448161/receipts'),'GET'),/different Etsy shop ID/);
-  assert.throws(() => requireServiceAccess(a,env,caseRequest('main','/application/shops/23207964/receiptsExtra'),'GET'),/endpoint not permitted/);
-  assert.throws(() => requireServiceAccess(a,env,caseRequest('main','/application/shops/23207964/listings'),'GET'),/endpoint not permitted/);
   assert.throws(() => requireServiceAccess(a,env,caseRequest(),'DELETE'),/Writes disabled/);
   env.ENABLE_WRITES='true';
   assert.throws(() => requireServiceAccess(a,env,caseRequest(),'DELETE'),/Write access denied/);
