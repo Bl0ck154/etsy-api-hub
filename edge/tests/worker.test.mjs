@@ -96,3 +96,19 @@ test('browser setup forbids cross-origin POSTs', async () => {
   });
   assert.equal((await worker.fetch(request,onlyOwner)).status,403);
 });
+
+test('scheduled housekeeping prunes only ephemeral OAuth/audit, not Etsy tokens or backups', async () => {
+  const {maintenance} = await import('../worker.mjs');
+  const deleted=[];
+  const fake={
+    DB:{prepare(sql){return {bind(...params){return {run:async()=>{deleted.push(sql);return {meta:{changes:0}};}}}}}}
+  };
+  const result=await maintenance(fake);
+  assert.equal(result.ok,true);
+  assert.equal(deleted.length,5);
+  assert.ok(deleted.some(s=>s.includes('mcp_refresh')));
+  assert.ok(deleted.some(s=>s.includes('hub_audit')));
+  assert.equal(deleted.some(s=>s.includes('hub_tokens')),false);
+  assert.equal(deleted.some(s=>s.includes('hub_snapshots')),false);
+  assert.equal(deleted.some(s=>s.includes('hub_clients')),false);
+});
