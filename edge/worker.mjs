@@ -40,19 +40,11 @@ const readShops = env => {
   }
   return shops;
 };
-const secondAppReady = env => Boolean(
-  env.ETSY_SECOND_CLIENT_ID && env.ETSY_SECOND_CLIENT_SECRET &&
-  !String(env.ETSY_SECOND_CLIENT_ID).startsWith('SET_SECOND_') &&
-  !String(env.ETSY_SECOND_CLIENT_SECRET).startsWith('SET_SECOND_')
-);
+// One previously-approved Etsy app key can authorize multiple sellers by OAuth.
+// Shop ownership is verified per OAuth callback; shops have independent tokens.
 const appFor = (env, alias) => {
   const apps = JSON.parse(env.ETSY_APPS_JSON || '{}');
-  const shared = { client_id: env.ETSY_CLIENT_ID, secret: env.ETSY_CLIENT_SECRET };
-  const second = secondAppReady(env) ? { client_id: env.ETSY_SECOND_CLIENT_ID, secret: env.ETSY_SECOND_CLIENT_SECRET } : null;
-  // Etsy Seller Apps authorize only the registered seller's shop. Do not try main's Seller App for second.
-  if (alias === 'second' && !apps.second && !second && env.ETSY_ALLOW_SHARED_APP_FOR_SECOND !== 'true')
-    throw fail('ETSY_SECOND_APP_NOT_CONFIGURED', 503);
-  const credentials = apps[alias] || (alias === 'second' && second) || shared;
+  const credentials = apps[alias] || { client_id: env.ETSY_CLIENT_ID, secret: env.ETSY_CLIENT_SECRET };
   if (!credentials.client_id || !credentials.secret) throw fail('ETSY_APP_NOT_CONFIGURED', 503);
   return credentials;
 };
@@ -267,13 +259,10 @@ async function etsyConnect(req, env, url) {
     const blocks = aliases.map(alias => {
       const label = escapeAttr(alias), shopId = escapeAttr(shops[alias].shop_id);
       if (connected.has(alias)) return '<section><h3>'+label+' <span class="status">Connected</span></h3><p>Shop ID '+shopId+' — already authorized. No action needed.</p></section>';
-      if (alias === 'second' && !secondAppReady(env) && env.ETSY_ALLOW_SHARED_APP_FOR_SECOND !== 'true' && !JSON.parse(env.ETSY_APPS_JSON || '{}').second) {
-        return '<section><h3>'+label+' <span class="pending">Separate Etsy app needed</span></h3><p>Shop ID '+shopId+'</p><p>The existing key connects only the first Seller App. Etsy restricts Seller Apps to their registered shop. To connect this shop, open its Etsy account, create its own Seller App at <a href="https://www.etsy.com/developers/your-apps" target="_blank" rel="noopener noreferrer">Etsy Developer Portal</a>, add the same callback URL, and replace the prepared Cloudflare Secrets <code>ETSY_SECOND_CLIENT_ID</code> and <code>ETSY_SECOND_CLIENT_SECRET</code> with that app’s keys. Then reload this page. No further code changes needed.</p></section>';
-      }
       return '<section><h3>'+label+' <span class="pending">Not connected</span></h3><p>Shop ID '+shopId+'</p><form method="post" action="/admin/connect" novalidate><input type="hidden" name="_csrf" value="'+csrf+'"><input type="hidden" name="shop" value="'+label+'"><label>Hub owner password<input type="password" name="password" autocomplete="current-password" placeholder="Enter Hub owner password"></label><button type="submit">Connect '+label+' on Etsy</button></form></section>';
     }).join('');
     const extra = aliases.some(alias => !connected.has(alias))
-      ? '<p class="tip">If Etsy shows your previously connected shop, sign out of Etsy and sign into the account that owns the selected shop. A private window or separate browser is often easier. Etsy Seller Apps can be limited to one seller account.</p>'
+      ? '<p class="tip">If Etsy shows your previously connected shop, sign out of Etsy and sign into the account that owns the selected shop. A private window or separate browser can avoid accidental account switching. Your existing Etsy app key can be used for both stores.</p>'
       : '<p>All configured shops are connected.</p>';
     const markup = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Connect Etsy shops</title><style>body{font:16px system-ui;max-width:520px;margin:2rem auto;padding:1rem;line-height:1.55}h2{margin:0 0 .5rem}section{border:1px solid #9996;border-radius:12px;padding:1rem;margin:1.1rem 0}h3{margin:0}.status{color:#1b7650}.pending{color:#95630c}.tip{font-size:.95rem;background:#8881;border-radius:8px;padding:.85rem}label{display:block;margin:.85rem 0}input,button{box-sizing:border-box;width:100%;font:inherit;padding:.75rem;border-radius:8px}button{cursor:pointer;background:#191919;color:#fff;border:0}p{margin:.5rem 0}</style></head><body><h2>Connect Etsy shops</h2><p>Choose the shop below. Your VPS connection stays unchanged.</p>'+ (aliases.length?blocks+extra:'<p>Configure SHOPS_JSON first.</p>')+'</body></html>';
     const response = html(markup);
