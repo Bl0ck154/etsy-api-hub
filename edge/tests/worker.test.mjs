@@ -67,7 +67,8 @@ test('owner bootstrap routes require admin bearer', async () => {
 const onlyOwner = {
   SHOPS_JSON: '{"main":{"shop_id":"12345678"}}',
   ENABLE_WRITES: 'false',
-  MCP_OWNER_PASSWORD: 'this-is-a-test-owner-password-very-long-not-production'
+  MCP_OWNER_PASSWORD: 'this-is-a-test-owner-password-very-long-not-production',
+  DB: {prepare: () => ({all: async () => ({results:[]})})}
 };
 test('one strong owner password unlocks read-only MCP without extra key secrets', async () => {
   const r = await worker.fetch(req('/mcp', { jsonrpc:'2.0',id:51,method:'tools/list' }, onlyOwner.MCP_OWNER_PASSWORD), onlyOwner);
@@ -116,7 +117,7 @@ test('scheduled housekeeping prunes only ephemeral OAuth/audit, not Etsy tokens 
 
 test('login works when Firefox/privacy browsers omit Origin using strict same-site CSRF', async () => {
   const rows=[];
-  const db={prepare(sql){return {bind(...args){return {first:async()=>null, run:async()=>{rows.push({sql, args});return {meta:{changes:1}};}}}}}};
+  const db={prepare(sql){return {all:async()=>({results:[]}),bind(...args){return {first:async()=>null, run:async()=>{rows.push({sql, args});return {meta:{changes:1}};}}}}}};
   const browserEnv={...onlyOwner,DB:db,ETSY_CLIENT_ID:'test-id',ETSY_CLIENT_SECRET:'test-secret'};
   const page=await worker.fetch(req('/admin/connect'),browserEnv);
   assert.equal(page.status,200);
@@ -145,4 +146,22 @@ test('Etsy getShopByOwnerUserId returns one shop object, not a results collectio
   assert.equal(ownsEtsyShop({results:[{shop_id:23207964}]},23207964),false);
   assert.equal(ownsEtsyShop(null,23207964),false);
   assert.equal(ownsEtsyShop({},23207964),false);
+});
+
+test('shop setup shows connected main, separate actionable second shop, no redundant main form', async () => {
+  const fixtureDB={prepare(sql){return {all:async()=>({results:[{alias:'main'}]})};}};
+  const page=await worker.fetch(req('/admin/connect'),{...env,DB:fixtureDB});
+  assert.equal(page.status,200);
+  const body=await page.text();
+  assert.match(body,/main <span class="status">Connected/);
+  assert.match(body,/second <span class="pending">Not connected/);
+  assert.match(body,/Connect second on Etsy/);
+  assert.doesNotMatch(body,/Connect main on Etsy/);
+  assert.match(body,/private window or separate browser/);
+});
+test('Etsy OAuth decline shows human-readable error', async () => {
+  const err='error=access_denied&error_description=Seller%20app%20limit';
+  const res=await worker.fetch(req('/admin/oauth/callback?'+err),env);
+  assert.equal(res.status,400);
+  assert.match(await res.text(),/Seller app limit/);
 });
