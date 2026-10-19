@@ -135,3 +135,14 @@ test('login works when Firefox/privacy browsers omit Origin using strict same-si
   const missing=await worker.fetch(new Request(url+'/admin/connect',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:form.toString()}),browserEnv);
   assert.equal(missing.status,403);
 });
+
+
+test('Etsy getShopByOwnerUserId returns one shop object, not a results collection', async () => {
+  const {ownsEtsyShop} = await import('../worker.mjs');
+  assert.equal(ownsEtsyShop({shop_id:23207964,user_id:123},'23207964'),true);
+  assert.equal(ownsEtsyShop({shop_id:'33448161',user_id:456},33448161),true);
+  assert.equal(ownsEtsyShop({shop_id:'33448161'},23207964),false);
+  assert.equal(ownsEtsyShop({results:[{shop_id:23207964}]},23207964),false);
+  assert.equal(ownsEtsyShop(null,23207964),false);
+  assert.equal(ownsEtsyShop({},23207964),false);
+});
