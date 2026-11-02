@@ -37,3 +37,7 @@ No. It reflects Glama's current automated rating and that the listing is maintai
 ## Where is the latest version?
 
 See the [npm package](https://www.npmjs.com/package/etsy-seller-mcp-hub) and [GitHub releases](https://github.com/Bl0ck154/etsy-seller-mcp-hub/releases).
+
+## Are large media uploads supported?
+
+Total files in one upload request are limited to 64 MiB by default; configure ETSY_HUB_MAX_UPLOAD_BYTES to a positive integer up to 201326592. Files are buffered; streaming is not implemented yet.

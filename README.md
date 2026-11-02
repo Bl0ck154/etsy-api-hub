@@ -141,3 +141,5 @@ npm pack --dry-run --ignore-scripts
 Tests use mocks and do not write to a live shop. See [Contributing](CONTRIBUTING.md), [Security](SECURITY.md) and the [MIT license](LICENSE).
 
 © 2026 Bl0ck154. Independent open-source software for authorized Etsy seller integrations.
+
+Multipart media uploads are limited to 64 MiB of decoded files per request by default. Configure ETSY_HUB_MAX_UPLOAD_BYTES (bytes, maximum 192 MiB) for larger files. Uploads are not yet streamed.

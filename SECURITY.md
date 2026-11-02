@@ -15,3 +15,5 @@ Read [Security boundaries](docs/SECURITY-BOUNDARIES.md) before self-hosting. Do 
 - Store credential files with restricted permissions (0600), never in Git. Use separate token chains for independently rotating consumers.
 
 Security fixes target the latest main branch; this project is pre-1.0.
+
+Multipart upload memory guard: total decoded file bytes are capped at 64 MiB per request by default, or a configured ETSY_HUB_MAX_UPLOAD_BYTES (maximum 192 MiB). Input size is checked before reading local files and decoding base64.

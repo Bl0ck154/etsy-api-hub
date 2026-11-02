@@ -43,7 +43,10 @@ export class EtsyHub {
         ? this.tokenStoreFactory({ shop, config: this.config, fetchImpl: this.fetchImpl })
         : null;
       const tokenStore = provided || new TokenFileStore(shop.credential_file, { fetchImpl: this.fetchImpl });
-      this.clients.set(shop.alias, new EtsyClient({ tokenStore, fetchImpl: this.fetchImpl }));
+      const configuredUploadLimit = Number(process.env.ETSY_HUB_MAX_UPLOAD_BYTES);
+      const maxUploadBytes = Number.isSafeInteger(configuredUploadLimit) && configuredUploadLimit > 0
+        ? configuredUploadLimit : 64 * 1024 * 1024;
+      this.clients.set(shop.alias, new EtsyClient({ tokenStore, fetchImpl: this.fetchImpl, maxUploadBytes }));
     }
     return this.clients.get(shop.alias);
   }

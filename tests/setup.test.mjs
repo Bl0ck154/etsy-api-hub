@@ -109,7 +109,7 @@ test('MCP stdio can introspect with a synthetic config and without Etsy credenti
   });
   assert.equal(response.status, 0, response.stderr);
   const messages = response.stdout.trim().split('\n').map(JSON.parse);
-  assert.equal(messages[0].result.serverInfo.version, '0.4.1');
+  assert.equal(messages[0].result.serverInfo.version, '0.4.2');
   assert.equal(messages[1].result.tools.length, 53);
   assert.equal(response.stderr, '');
 });
