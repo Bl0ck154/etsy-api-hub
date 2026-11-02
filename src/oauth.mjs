@@ -171,18 +171,31 @@ async function resolveAuthorizedShop({ accessToken, clientId, secret, fetchImpl 
 export async function completeOAuth({ config, state, code, fetchImpl = fetch } = {}) {
   if (!code) throw inputError('OAuth code is required', 'OAUTH_CODE_REQUIRED');
   const file = stateFile(config, state);
-  const claimedPath = file + '.claimed.' + crypto.randomBytes(12).toString('hex');
+  // O_EXCL works consistently on Linux, macOS and Windows; competing
+  // callbacks cannot both claim this state. Never reuse it after failure.
+  const claimFile = file + '.consuming';
+  let handle;
   try {
-    await fs.rename(file, claimedPath);
+    handle = await fs.open(claimFile, 'wx', 0o600);
   } catch (error) {
-    if (error?.code === 'ENOENT') throw inputError('OAuth state is missing or already used', 'OAUTH_STATE_NOT_FOUND');
+    if (error?.code === 'ENOENT' || error?.code === 'EEXIST') {
+      throw inputError('OAuth state is missing or already used', 'OAUTH_STATE_NOT_FOUND');
+    }
     throw error;
   }
   let record;
   try {
-    record = JSON.parse(await fs.readFile(claimedPath, 'utf8'));
+    record = JSON.parse(await fs.readFile(file, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      throw inputError('OAuth state is missing or already used', 'OAUTH_STATE_NOT_FOUND');
+    }
+    throw error;
   } finally {
-    try { await fs.unlink(claimedPath); } catch {}
+    // Delete the state before releasing the exclusive claim.
+    try { await fs.unlink(file); } catch {}
+    try { await handle.close(); } catch {}
+    try { await fs.unlink(claimFile); } catch {}
   }
   if (record.state !== state || Date.now() > Number(record.expires_at || 0)) {
     throw inputError('OAuth state expired or did not match', 'OAUTH_STATE_EXPIRED');
