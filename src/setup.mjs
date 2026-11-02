@@ -33,7 +33,14 @@ export async function initLocalSetup({ shopId, configPath = localConfigPath(), c
     shops: { main: { shop_id: String(shopId), credential_file: credentials } },
     server: { host: '127.0.0.1', port: 3737 }
   });
-  await createPrivateJson(credentials, { client_id: '', secret: '', access_token: '', refresh_token: '' });
+  try {
+    await createPrivateJson(credentials, { client_id: '', secret: '', access_token: '', refresh_token: '' });
+  } catch (error) {
+    // Do not leave a configuration pointing to a missing credential file.
+    // This path was created with 'wx' above; best effort rollback.
+    try { await fs.unlink(target); } catch {}
+    throw error;
+  }
   return {
     config_file: target, credentials_file: credentials,
     next_steps: [

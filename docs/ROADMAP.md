@@ -15,6 +15,20 @@
 - Additional security and mocked tests, setup docs, safe demo examples
 - Correct quick-start instructions and clarify the self-hosted security boundary
 
+## Shipped in v0.4.1
+
+- Existing Glama listing and verified A-rated badge connected to README and upstream PR
+- Bounded pagination for seller low-stock and unshipped reports with `next_offset`
+- Safe setup rollback if the credential placeholder cannot be created
+- Additional pagination, data minimization and configuration safety regression tests
+
+## Current limitations
+
+- Glama lists the server but cannot deploy it as a shared hosted connector.
+- The awesome-mcp-servers PR awaits external maintainer review and merge.
+- No independent live Etsy end-to-end validation in public CI.
+- Every seller still needs an approved v3 API key and OAuth setup.
+
 ## Future candidates
 
 - Multi-page low-stock inventory reporting using Etsy batch inventory API, with careful rate limiting and missing-record handling
@@ -22,7 +36,7 @@
 - Stream/bound large file uploads without base64 JSON memory spikes
 - Better non-ChatGPT MCP clients using local stdio and reliable OS-specific installation help
 - CI integration tests with **synthetic** configuration and no customer credentials
-- Publish a verified Glama entry and add the badge to the pending awesome-mcp-servers PR
+- Follow up with upstream maintainers on the existing Glama-badged PR
 
 ## Explicitly outside current scope
 
