@@ -24,6 +24,12 @@ jobs:
           PACKAGE=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
           npm view "$PACKAGE@$VERSION" version
+          PUBLISHED_MCP_NAME=$(npm view "$PACKAGE@$VERSION" mcpName --json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8'))")
+          MANIFEST_MCP_NAME=$(node -p "require('./server.json').name")
+          test "$PUBLISHED_MCP_NAME" = "$MANIFEST_MCP_NAME" || {
+            echo "Published npm mcpName does not match server.json; publish corrected npm version first"
+            exit 1
+          }
       - name: Install verified official publisher
         run: |
           curl -fsSL -o mcp-publisher.tar.gz https://github.com/modelcontextprotocol/registry/releases/download/v1.8.7/mcp-publisher_linux_amd64.tar.gz

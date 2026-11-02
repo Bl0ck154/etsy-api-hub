@@ -33,7 +33,7 @@ Requires **Node.js 22+** plus an approved Etsy Open API v3 app and authorized cr
 
 ### Install from npm
 
-Once published on [npm](https://www.npmjs.com/package/etsy-seller-mcp-hub):
+Install the public package from [npm](https://www.npmjs.com/package/etsy-seller-mcp-hub):
 
 ~~~bash
 npm install -g etsy-seller-mcp-hub

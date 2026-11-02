@@ -1,6 +1,6 @@
 {
   "name": "etsy-seller-mcp-hub",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Self-hosted MCP server for Etsy sellers: manage shop listings, orders, inventory and media with AI assistants",
   "type": "module",
   "bin": {
@@ -52,7 +52,7 @@
     "LICENSE",
     "server.json"
   ],
-  "mcpName": "io.github.bl0ck154/etsy-seller-mcp-hub",
+  "mcpName": "io.github.Bl0ck154/etsy-seller-mcp-hub",
   "publishConfig": {
     "access": "public"
   }
