@@ -17,6 +17,7 @@ test('npm manifest and official MCP Registry metadata agree', async () => {
   assert.equal(registry.packages[0].identifier, pkg.name);
   assert.equal(registry.packages[0].version, pkg.version);
   assert.equal(registry.packages[0].transport.type, 'stdio');
-  assert.equal(pkg.bin['etsy-mcp'], './bin/etsy-mcp.mjs');
+  assert.equal(pkg.bin['etsy-mcp'], 'bin/etsy-mcp.mjs');
+  assert.equal(pkg.bin['etsyctl'], 'bin/etsyctl.mjs');
   assert.equal(registry.packages[0].environmentVariables[0].name, 'ETSY_HUB_CONFIG');
 });
