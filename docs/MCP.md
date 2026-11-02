@@ -2,7 +2,7 @@
 
 ## Claude Desktop / Cursor (local stdio)
 
-Clone this repository, configure your own Etsy credentials and create an ETSY_HUB_CONFIG JSON file. Run `npm link` inside the cloned repository to install the `etsy-mcp` command. If your client has a user-specific executable search path, use an absolute path to the project script.
+Clone this repository, configure your own Etsy credentials and create an ETSY_HUB_CONFIG JSON file. Run `npm link` inside the cloned repository or install `etsy-api-hub` from npm after publication. If your client has a user-specific executable search path, use an absolute path to the project script.
 
 Example MCP client configuration:
 

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.bl0ck154/etsy-mcp-hub",
+  "title": "Etsy MCP Hub",
+  "description": "Self-hosted Etsy Open API v3 shop tools for listings, orders, inventory and media.",
+  "repository": {
+    "url": "https://github.com/Bl0ck154/etsy-api-hub",
+    "source": "github"
+  },
+  "version": "0.2.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "etsy-api-hub",
+      "version": "0.2.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ETSY_HUB_CONFIG",
+          "description": "Absolute path to your local Etsy API Hub configuration file.",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "ETSY_MCP_READ_ONLY",
+          "description": "Set to 1 to limit the exposed MCP tools to read-only operations.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "default": "1"
+        }
+      ]
+    }
+  ]
+}

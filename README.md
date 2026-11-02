@@ -53,7 +53,7 @@ npm link
 etsy-mcp
 ~~~
 
-[Claude Desktop / Cursor configuration](docs/MCP.md). The npm package is prepared but **has not yet been published**; install from GitHub source for now.
+[Claude Desktop / Cursor configuration](docs/MCP.md). The npm package is prepared for publication. Until the npm listing is verified, install from GitHub source.
 
 ### CLI examples
 
@@ -114,5 +114,16 @@ npm pack --dry-run --ignore-scripts
 ~~~
 
 The test suite uses mocks and does not perform live Etsy writes. [Contributions](CONTRIBUTING.md) and responsible security reports are welcome.
+
+## Install from npm (once published)
+
+After confirming the version is live at [npm](https://www.npmjs.com/package/etsy-api-hub), use:
+
+~~~bash
+npm install -g etsy-api-hub
+ETSY_HUB_CONFIG=/absolute/path/config.json ETSY_MCP_READ_ONLY=1 etsy-mcp
+~~~
+
+The npm name is `etsy-api-hub` and the MCP server's registry name is `io.github.bl0ck154/etsy-mcp-hub`. Etsy shop credentials are never included in the published package.
 
 MIT License © 2026 Bl0ck154. Etsy and associated marks belong to their respective owners.
