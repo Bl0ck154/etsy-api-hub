@@ -4,8 +4,8 @@
   "description": "Self-hosted MCP server for Etsy sellers: manage shop listings, orders, inventory and media with AI assistants",
   "type": "module",
   "bin": {
-    "etsyctl": "./bin/etsyctl.mjs",
-    "etsy-mcp": "./bin/etsy-mcp.mjs"
+    "etsyctl": "bin/etsyctl.mjs",
+    "etsy-mcp": "bin/etsy-mcp.mjs"
   },
   "scripts": {
     "start": "node src/server.mjs",
