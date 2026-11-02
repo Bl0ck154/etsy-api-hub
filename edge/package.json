@@ -1,0 +1,11 @@
+{
+  "name": "etsy-api-hub-cloudflare",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check worker.mjs",
+    "deploy": "wrangler deploy",
+    "migrate:remote": "wrangler d1 migrations apply etsy-api-hub-edge --remote"
+  },
+  "devDependencies": { "wrangler": "^4.0.0" }
+}
