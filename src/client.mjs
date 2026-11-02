@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Blob } from 'node:buffer';
 import { EtsyHubError, inputError } from './errors.mjs';
+import { createPathMultipart } from './multipart-stream.mjs';
 
 const API_BASE = 'https://api.etsy.com/v3';
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
@@ -79,7 +80,14 @@ export class EtsyClient {
       ...headers,
     };
 
-    if (multipart || files?.length) {
+    let streaming = false;
+    if (files?.length && files.every(file => file?.path && file.bytes === undefined && file.content_base64 === undefined)) {
+      const multipartBody = await createPathMultipart({ files, form, maxUploadBytes: this.maxUploadBytes, mimeFor });
+      payload = multipartBody.body;
+      requestHeaders['Content-Type'] = multipartBody.contentType;
+      requestHeaders['Content-Length'] = String(multipartBody.contentLength);
+      streaming = true;
+    } else if (multipart || files?.length) {
       const multipartBody = new FormData();
       for (const [key, value] of Object.entries(form || {})) {
         if (value === undefined || value === null) continue;
@@ -147,6 +155,7 @@ export class EtsyClient {
       method: verb,
       headers: requestHeaders,
       ...(verb === 'GET' ? {} : { body: payload }),
+      ...(streaming ? { duplex: 'half' } : {}),
     });
 
     if (response.status === 401 && !state.refreshed) {

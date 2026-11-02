@@ -40,4 +40,8 @@ See the [npm package](https://www.npmjs.com/package/etsy-seller-mcp-hub) and [Gi
 
 ## Are large media uploads supported?
 
-Total files in one upload request are limited to 64 MiB by default; configure ETSY_HUB_MAX_UPLOAD_BYTES to a positive integer up to 201326592. Files are buffered; streaming is not implemented yet.
+Total files in one upload request are limited to 64 MiB by default; configure ETSY_HUB_MAX_UPLOAD_BYTES to a positive integer up to 201326592. Local file-path multipart uploads stream in 64 KiB chunks. MCP base64 JSON files remain size-limited and buffered.
+
+## Can remote MCP refresh tokens be replayed?
+
+The owner-only bridge rotates refresh tokens on first use, rejecting any consumed token even after restart. No public multi-seller login is provided, and there is not yet a dedicated revoke-all-sessions control.

@@ -1,6 +1,6 @@
 {
   "name": "etsy-seller-mcp-hub",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "Self-hosted Etsy seller MCP server with 79 tools, private OAuth, safe CLI onboarding and shop reports",
   "type": "module",
   "bin": {
@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/server.mjs",
     "test": "node --test",
-    "check": "node --check src/client.mjs && node --check src/etsy-schema.mjs && node --check src/hub.mjs && node --check src/oauth.mjs && node --check src/gpt-adapter.mjs && node --check src/mcp-oauth.mjs && node --check src/mcp-tools.mjs && node --check src/mcp-adapter.mjs && node --check src/server-security.mjs && node --check src/stdio-handler.mjs && node --check src/server.mjs && node --check bin/etsy-mcp.mjs && node --check bin/etsyctl.mjs"
+    "check": "node --check src/client.mjs && node --check src/etsy-schema.mjs && node --check src/hub.mjs && node --check src/oauth.mjs && node --check src/gpt-adapter.mjs && node --check src/mcp-oauth.mjs && node --check src/mcp-tools.mjs && node --check src/mcp-adapter.mjs && node --check src/server-security.mjs && node --check src/stdio-handler.mjs && node --check src/server.mjs && node --check bin/etsy-mcp.mjs && node --check bin/etsyctl.mjs && node --check src/multipart-stream.mjs"
   },
   "engines": {
     "node": ">=22"

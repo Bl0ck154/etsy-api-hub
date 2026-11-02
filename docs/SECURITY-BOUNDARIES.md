@@ -33,9 +33,11 @@ Public directories may clone, build, and inspect source metadata or introspect a
 - Remote public multi-tenant OAuth and client registration: **unsupported**.
 - End-to-end live Etsy API tests: **not part of public CI**; tests are mocked to avoid accessing real shops.
 - Local API read access: can still reveal buyer data. Choose least-privilege scopes and controls.
-- Large media: base64 uploads consume extra memory; streaming uploads remain future work.
+- Large media: base64 uploads consume extra memory; local path uploads now stream, while base64 JSON stays buffered and capped.
 - Filesystem compromise: local credentials are readable by processes running as the seller's OS user. Use OS protections and full disk encryption.
 
 Please see [SECURITY.md](../SECURITY.md) to report a vulnerability privately.
 
 For tested mitigations and outstanding quality gates, see [Security review](SECURITY-REVIEW.md).
+
+Owner-only remote MCP refresh tokens are now one-time and replayed tokens are refused even across process restarts. Spent token fingerprints, not secrets, are retained with private filesystem permissions. A stolen token used first can still race its legitimate owner; a revoke-all operation is not yet available.

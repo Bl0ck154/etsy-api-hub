@@ -1,0 +1,30 @@
+name: Cross-platform MCP smoke
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: etsy-portability
+  cancel-in-progress: true
+jobs:
+  portable:
+    name: Node 22 - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and packaging checks
+        run: npm run check
+      - name: Offline security and onboarding tests
+        run: npm test
+      - name: Inspect npm package
+        run: npm pack --dry-run --ignore-scripts
+      - name: CLI help without Etsy credentials
+        run: node bin/etsyctl.mjs --help
