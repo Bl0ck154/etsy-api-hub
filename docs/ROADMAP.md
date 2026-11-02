@@ -10,7 +10,7 @@ This is a seller-hosted MCP server. Any user operates their own instance with th
 - npm releases via short-lived GitHub OIDC, official MCP Registry listing, maintainer-claimed Glama profile with A badge.
 - Input limits for multipart file uploads (64 MiB decoded-byte aggregate by default), mocked tests and CI.
 
-## Next patch (v0.4.3)
+## Shipped previously (v0.4.3)
 
 - Consume each local Etsy OAuth PKCE state only once, even on failure or concurrent callbacks.
 - Avoid returning raw Etsy HTTP/OAuth error bodies or reflected seller information in error messages.
@@ -29,7 +29,7 @@ This is a seller-hosted MCP server. Any user operates their own instance with th
 - Public npm 0.5.0 installs cleanly and stdio MCP initialization and read-only tool discovery work in isolation.
 - Mocked security tests and Linux, macOS and Windows CI matrix passed.
 - Existing authorized Cloudflare Etsy_API provider completed a consented draft create/read/update/readback/delete in second; the draft was removed.
-- The private My_Etsy remote connector still needs separate second-shop OAuth reconciliation; see [Connector status](CONNECTORS.md) and [issue #16](https://github.com/Bl0ck154/etsy-seller-mcp-hub/issues/16).
+- The optional private My_Etsy connector lacks second-shop OAuth tokens. The owner does not require that private integration, so [issue #16](https://github.com/Bl0ck154/etsy-seller-mcp-hub/issues/16) was closed as not planned, not as a repaired deployment. Public self-hosted MCP users manage their own authorized shops.
 - Independent security certification and an unaided first-time OAuth onboarding exercise remain unverified.
 
 ## P1 — improvements with remaining work

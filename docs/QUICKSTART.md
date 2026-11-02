@@ -62,7 +62,17 @@ etsyctl listing list active --limit 5
 
 The code is single-use, and the local PKCE state expires after 15 minutes. It is consumed on the first completion attempt, including failures. If an exchange fails, restart OAuth to create a fresh authorization state. Authorization completion verifies the shop ID matches your configured shop. Treat code and state as temporary credentials. For a Windows shell, enter the commands individually, without leading `$` characters.
 
-If you later need write operations, deliberately modify `oauth_scopes` and **reauthorize**. Always approve live changes in your AI assistant.
+## Enable full shop management (optional)
+
+The public package exposes **79 MCP tools**, including listing creation, updates, deletion, inventory and media management. New configurations start with read-only Etsy OAuth scopes for safety. To enable changes on **your own shop**:
+
+1. In your local configuration, add only the write scopes needed for the desired operations to `oauth_scopes` (for example, `listings_w` for listing updates and `listings_d` for deletion). Other endpoints may require additional Etsy scopes; check the relevant endpoint documentation.
+2. Run `etsyctl oauth start --shop main --redirect https://your-registered-callback.example/callback` again, then complete consent with `etsyctl oauth complete --state STATE --code CODE`. Changing JSON alone does not upgrade an existing token.
+3. Remove `ETSY_MCP_READ_ONLY` from your AI client's environment, or set it to `"0"`, and restart the client. When set to `"1"`, write tools stay hidden regardless of token permissions.
+4. Confirm your assistant displays the intended write tools, and approve consequential changes. Generic raw writes do not automatically create backups.
+
+Each user installs and authorizes their own MCP. The maintainer does not receive users' Etsy credentials. npm, Glama and MCP Registry entries do not provide a hosted shared login.
+
 
 ## 4. Connect a local AI assistant
 
