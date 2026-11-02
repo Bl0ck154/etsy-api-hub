@@ -35,7 +35,7 @@ test('beginOAuth creates bounded PKCE state and Etsy authorization URL', async (
   const state = JSON.parse(await fs.readFile(path.join(stateDir, result.state + '.json'), 'utf8'));
   assert.equal(state.expected_shop_id, '12345678');
   assert.ok(state.verifier);
-  assert.equal((await fs.stat(path.join(stateDir, result.state + '.json'))).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') assert.equal((await fs.stat(path.join(stateDir, result.state + '.json'))).mode & 0o777, 0o600);
 });
 
 test('OAuth state cannot be reused after a failed upstream exchange', async t => {

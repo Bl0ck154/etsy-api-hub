@@ -40,7 +40,7 @@ test('refresh uses shared secret header and persists rotated token pair', async 
   const saved = JSON.parse(await fs.readFile(file, 'utf8'));
   assert.equal(saved.access_token, 'new-access');
   assert.equal(saved.refresh_token, 'new-refresh');
-  assert.equal((await fs.stat(file)).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') assert.equal((await fs.stat(file)).mode & 0o777, 0o600);
 });
 
 test('token refresh errors do not echo sensitive fields from Etsy responses', async t => {
