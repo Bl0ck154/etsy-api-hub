@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { initLocalSetup, diagnoseLocalSetup, localConfigPath } from '../src/setup.mjs';
 import { loadConfig } from '../src/config.mjs';
 
@@ -21,8 +22,8 @@ test('init creates portable local config and private credential placeholder with
   assert.deepEqual(config.oauth_scopes, ['shops_r', 'listings_r', 'transactions_r']);
   assert.equal(creds.client_id, '');
   assert.equal(creds.secret, '');
-  assert.equal((await fs.stat(result.credentials_file)).mode & 0o077, 0);
-  assert.equal((await fs.stat(result.config_file)).mode & 0o077, 0);
+  if (process.platform !== 'win32') assert.equal((await fs.stat(result.credentials_file)).mode & 0o077, 0);
+  if (process.platform !== 'win32') assert.equal((await fs.stat(result.config_file)).mode & 0o077, 0);
   assert.equal((await loadConfig(f.configPath)).default_shop, 'main');
 });
 test('init refuses to replace credential files or config files', async t => {
@@ -67,11 +68,17 @@ test('doctor rejects symlink credential files and detects overly broad file perm
   await fs.writeFile(result.credentials_file, JSON.stringify({ client_id: 'a', secret: 'b', access_token: 'c', refresh_token: 'd' }));
   await fs.chmod(result.credentials_file, 0o644);
   let d = await diagnoseLocalSetup({ configPath: f.configPath });
-  assert.equal(d.ready, false);
-  assert(d.checks.some(c => c.name === 'permissions:main' && c.status === 'warn'));
+  if (process.platform !== 'win32') {
+    assert.equal(d.ready, false);
+    assert(d.checks.some(c => c.name === 'permissions:main' && c.status === 'warn'));
+  }
   const otherFile = path.join(f.dir, 'private.json');
   await fs.rename(result.credentials_file, otherFile);
-  await fs.symlink(otherFile, result.credentials_file);
+  try { await fs.symlink(otherFile, result.credentials_file); }
+  catch (error) {
+    if (process.platform === 'win32' && error.code === 'EPERM') { t.diagnostic('Symlink privilege unavailable'); return; }
+    throw error;
+  }
   d = await diagnoseLocalSetup({ configPath: f.configPath });
   assert.equal(d.ok, false);
   assert(d.checks.some(c => c.name === 'credentials:main' && c.status === 'fail'));
@@ -86,7 +93,7 @@ test('doctor handles invalid and missing JSON without leaking file content', asy
   assert.equal(JSON.stringify(d).includes('secret-canary'), false);
 });
 test('CLI help works without credentials and supports both help switches', async () => {
-  const cli = new URL('../bin/etsyctl.mjs', import.meta.url).pathname;
+  const cli = fileURLToPath(new URL('../bin/etsyctl.mjs', import.meta.url));
   for (const flag of ['--help', '-h', 'help']) {
     const p = spawnSync(process.execPath, [cli, flag], { encoding: 'utf8', env: { ...process.env, ETSY_HUB_CONFIG: '/nonexistent/etsy-config.json' } });
     assert.equal(p.status, 0, p.stderr);
@@ -95,12 +102,12 @@ test('CLI help works without credentials and supports both help switches', async
   }
 });
 test('local config location uses user home, not a hardcoded server path', () => {
-  assert.equal(localConfigPath('/home/example'), '/home/example/.config/etsy-seller-mcp-hub/config.json');
+  assert.equal(localConfigPath(os.homedir()), path.join(os.homedir(), '.config', 'etsy-seller-mcp-hub', 'config.json'));
 });
 
 test('MCP stdio can introspect with a synthetic config and without Etsy credentials', async () => {
-  const cli = new URL('../bin/etsy-mcp.mjs', import.meta.url).pathname;
-  const config = new URL('../config.example.json', import.meta.url).pathname;
+  const cli = fileURLToPath(new URL('../bin/etsy-mcp.mjs', import.meta.url));
+  const config = fileURLToPath(new URL('../config.example.json', import.meta.url));
   const response = spawnSync(process.execPath, [cli], {
     env: { ...process.env, ETSY_HUB_CONFIG: config, ETSY_MCP_READ_ONLY: '1' },
     input: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }) + '\n'
@@ -109,7 +116,7 @@ test('MCP stdio can introspect with a synthetic config and without Etsy credenti
   });
   assert.equal(response.status, 0, response.stderr);
   const messages = response.stdout.trim().split('\n').map(JSON.parse);
-  assert.equal(messages[0].result.serverInfo.version, '0.4.3');
+  assert.equal(messages[0].result.serverInfo.version, '0.5.0');
   assert.equal(messages[1].result.tools.length, 53);
   assert.equal(response.stderr, '');
 });

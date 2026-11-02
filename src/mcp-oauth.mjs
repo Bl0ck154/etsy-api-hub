@@ -82,9 +82,44 @@ export class EtsyMcpOAuth {
     this.secret = secret;
     this.lockPath = path.join(stateDir, 'mcp-chatgpt-client.json');
     this.codes = new Map();
+    // A refresh token must be single-use, including across process restarts.
+    // Store only a SHA-256 fingerprint, never the actual token.
+    this.usedRefreshDir = path.join(stateDir, 'mcp-used-refresh');
+    fs.mkdirSync(this.usedRefreshDir, { recursive: true, mode: 0o700 });
+    this.pruneExpiredRefreshMarkers();
     this.passwordHash = loadPasswordHash();
     this.passwordFailures = new Map();
     fs.mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+  }
+
+  pruneExpiredRefreshMarkers() {
+    // Expired refresh tokens already fail signature/expiry validation.
+    // Clean up only our own old marker files to avoid unbounded storage.
+    const oldest = Date.now() - (REFRESH_TTL_SECONDS + 24 * 60 * 60) * 1000;
+    for (const entry of fs.readdirSync(this.usedRefreshDir)) {
+      if (!/^[a-f0-9]{64}\.used$/.test(entry)) continue;
+      const file = path.join(this.usedRefreshDir, entry);
+      try {
+        if (fs.statSync(file).mtimeMs < oldest) fs.unlinkSync(file);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+    }
+  }
+
+  consumeRefreshToken(token, payload) {
+    if (typeof payload?.jti !== 'string' || !/^[0-9a-f-]{36}$/.test(payload.jti)) return false;
+    const digest = crypto.createHash('sha256').update(token).digest('hex');
+    const marker = path.join(this.usedRefreshDir, digest + '.used');
+    try {
+      const fd = fs.openSync(marker, 'wx', 0o600);
+      try { fs.writeFileSync(fd, String(payload.exp)); }
+      finally { fs.closeSync(fd); }
+      return true;
+    } catch (error) {
+      if (error?.code === 'EEXIST') return false;
+      throw error;
+    }
   }
 
   signToken(payload) {
@@ -303,6 +338,10 @@ export class EtsyMcpOAuth {
           const requestedResource = form.get('resource') || resource;
           const payload = this.verifyToken(refreshToken, 'refresh', requestedResource);
           if (!payload || payload.client_id !== clientId || requestedResource !== resource) {
+            json(res, 400, { error: 'invalid_grant' });
+            return true;
+          }
+          if (!this.consumeRefreshToken(refreshToken, payload)) {
             json(res, 400, { error: 'invalid_grant' });
             return true;
           }
