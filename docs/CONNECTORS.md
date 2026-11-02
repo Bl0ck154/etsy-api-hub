@@ -7,7 +7,7 @@ The owner operates two Etsy integrations. A shop alias in one connector does not
 - Cloudflare Etsy_API provider: both main and second returned HTTP 200 for listings, inventory, and receipts.
 - Private My_Etsy remote MCP / server-local CLI: both aliases are configured, and main reads work. Second fails with INVALID_CREDENTIAL_FILE. Its local credential file has app-key fields but lacks shop OAuth token fields.
 
-Never copy OAuth tokens across the services blindly. Repair only the intended private connector using its approved authorization workflow, then verify that main still reads normally. Follow [issue #16](https://github.com/Bl0ck154/etsy-seller-mcp-hub/issues/16).
+Never copy OAuth tokens between the services. The owner confirmed that the private second-shop connection is not needed for the public product. [Issue #16](https://github.com/Bl0ck154/etsy-seller-mcp-hub/issues/16) is closed as **not planned**; the private second-shop credential file was **not repaired**. If this optional bridge is needed later, use its dedicated OAuth workflow and verify main afterward.
 
 ## Completed checks
 

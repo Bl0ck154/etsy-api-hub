@@ -49,6 +49,10 @@ npx --yes --package=etsy-seller-mcp-hub etsy-mcp
 
 In AI client JSON you can use `"command": "npx"` and `"args": ["--yes", "--package=etsy-seller-mcp-hub", "etsy-mcp"]`, or install globally and use the binary path.
 
+## Switch from read-only to full seller tools
+
+The examples above set `ETSY_MCP_READ_ONLY=1` and display 53 read-only tools. For all 79 tools, remove the `ETSY_MCP_READ_ONLY` variable, or set it to `"0"`, then restart the client. **This changes tool visibility, not Etsy authorization.** To create or edit items, grant the appropriate Etsy OAuth write scopes and reauthorize your own shop. See [Full shop management](QUICKSTART.md#enable-full-shop-management-optional).
+
 ## Security and troubleshooting
 
 Local MCP exposes 79 tools, with 53 in read-only mode. The read-only tool filter does not change Etsy OAuth scopes. Shop content returned by MCP may be transmitted to your AI model provider; choose appropriate client privacy settings.

@@ -119,7 +119,7 @@ ETSY_HUB_CONFIG=/absolute/path/config.json node src/server.mjs
 
 The service binds to **127.0.0.1** by default and refuses external binds without an internal bearer token. For remote use, add authenticated TLS and appropriate access controls. Existing remote MCP OAuth supports a private, owner-approved ChatGPT client, not general third-party seller sign-in.
 
-Set `ETSY_MCP_READ_ONLY=1` to expose only 53 tools annotated read-only. This is an additional tool filter, not a substitute for Etsy OAuth permissions. Typed listing, inventory and media writes create backups where supported; **raw API writes have no automatic snapshots**. Confirm any live modification before giving an AI client write access.
+The public self-hosted MCP exposes **79 tools in full mode**. Set `ETSY_MCP_READ_ONLY=1` to expose only 53 tools annotated read-only. To enable writes, remove the read-only variable, grant the necessary Etsy OAuth write scopes and reauthorize your own shop. [Full-access steps](docs/QUICKSTART.md#enable-full-shop-management-optional). This is an additional tool filter, not a substitute for Etsy OAuth permissions. Typed listing, inventory and media writes create backups where supported; **raw API writes have no automatic snapshots**. Confirm any live modification before giving an AI client write access.
 
 ### Docker
 
