@@ -1,18 +1,51 @@
 {
   "name": "etsy-api-hub",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Shared Etsy Open API gateway and agent-friendly CLI for internal projects",
+  "version": "0.2.0",
+  "description": "Etsy Open API v3 toolkit with 77 MCP tools, CLI, local HTTP gateway and safe shop workflows",
   "type": "module",
   "bin": {
-    "etsyctl": "./bin/etsyctl.mjs"
+    "etsyctl": "./bin/etsyctl.mjs",
+    "etsy-mcp": "./bin/etsy-mcp.mjs"
   },
   "scripts": {
     "start": "node src/server.mjs",
     "test": "node --test",
-    "check": "node --check src/client.mjs && node --check src/etsy-schema.mjs && node --check src/hub.mjs && node --check src/oauth.mjs && node --check src/gpt-adapter.mjs && node --check src/mcp-oauth.mjs && node --check src/mcp-tools.mjs && node --check src/mcp-adapter.mjs && node --check src/server.mjs && node --check bin/etsyctl.mjs"
+    "check": "node --check src/client.mjs && node --check src/etsy-schema.mjs && node --check src/hub.mjs && node --check src/oauth.mjs && node --check src/gpt-adapter.mjs && node --check src/mcp-oauth.mjs && node --check src/mcp-tools.mjs && node --check src/mcp-adapter.mjs && node --check src/server-security.mjs && node --check src/stdio-handler.mjs && node --check src/server.mjs && node --check bin/etsy-mcp.mjs && node --check bin/etsyctl.mjs"
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/Bl0ck154/etsy-api-hub#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bl0ck154/etsy-api-hub.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Bl0ck154/etsy-api-hub/issues"
+  },
+  "keywords": [
+    "etsy",
+    "etsy-api",
+    "etsy-mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "ai-agents",
+    "shop-management",
+    "ecommerce",
+    "automation",
+    "oauth2"
+  ],
+  "files": [
+    "bin/",
+    "src/",
+    "assets/",
+    "docs/",
+    "config.example.json",
+    "credentials.example.json",
+    "README.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "LICENSE"
+  ]
 }

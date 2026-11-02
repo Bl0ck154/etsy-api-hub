@@ -43,6 +43,6 @@ The raw interface intentionally supports the complete Etsy `/v3/application/*` s
 
 All interfaces share the same core:
 
-`Etsy token store -> EtsyClient -> EtsyHub -> CLI / local HTTP API / future adapters`
+`Etsy token store -> EtsyClient -> EtsyHub -> CLI / HTTP / MCP stdio / MCP HTTP / GPT Actions`
 
 Do not implement a second token refresher or second Etsy HTTP client in downstream projects. Add reusable behavior here instead.

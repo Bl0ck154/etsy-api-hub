@@ -1,0 +1,13 @@
+.git
+.github
+node_modules/
+.env
+config.json
+credentials/
+state/
+*.log
+*.bak*
+.tmp*
+tests/
+docs/
+assets/
