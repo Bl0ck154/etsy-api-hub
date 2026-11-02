@@ -6,11 +6,17 @@ import { loadConfig, publicConfig } from '../src/config.mjs';
 import { EtsyHub } from '../src/hub.mjs';
 import { EtsyHubError } from '../src/errors.mjs';
 import { beginOAuth, completeOAuth } from '../src/oauth.mjs';
+import { initLocalSetup, diagnoseLocalSetup } from '../src/setup.mjs';
+import { buildLowStockReport, summarizeUnshippedReceipts } from '../src/seller-reports.mjs';
 
 function usage() {
   console.log(`etsyctl — shared Etsy API CLI
 
 Usage:
+  etsyctl init --shop-id SHOP_ID [--config PATH] [--credential-file PATH]
+  etsyctl doctor [--config PATH]
+  etsyctl report low-stock [--threshold N] [--limit N] [--shop alias]
+  etsyctl report unshipped [--limit N] [--shop alias]
   etsyctl shops
   etsyctl oauth start --shop alias --redirect https://... [--scopes "scope1 scope2"]
   etsyctl oauth complete --state STATE --code CODE
@@ -35,6 +41,8 @@ Notes:
   - Output is JSON, designed for agents and scripts.
   - High-level write commands snapshot the listing first by default.
   - "request" exposes the full Etsy /v3/application/* API surface without draft-only restrictions.
+  - Init creates a local config and credential placeholder with private permissions.
+  - Doctor is an offline check and never prints keys or tokens.
   - Credentials are read from configured credential files and are never printed.
 `);
 }
@@ -49,7 +57,7 @@ function parseArgs(argv) {
       continue;
     }
     const key = item.slice(2);
-    if (key === 'no-backup' || key === 'meta') {
+    if (key === 'no-backup' || key === 'meta' || key === 'help') {
       flags[key] = true;
       continue;
     }
@@ -111,8 +119,15 @@ function output(value, includeMeta = false) {
 
 async function main() {
   const { positional: p, flags: f } = parseArgs(process.argv.slice(2));
-  if (!p.length || p[0] === 'help') return usage();
-  const config = await loadConfig();
+  if (!p.length || p[0] === 'help' || p[0] === '-h' || p[0] === '--help' || f.help === true) return usage();
+  if (p[0] === 'init') return output(await initLocalSetup({ shopId: f['shop-id'], configPath: f.config || process.env.ETSY_HUB_CONFIG || undefined, credentialPath: f['credential-file'] }));
+  if (p[0] === 'doctor') {
+    const report = await diagnoseLocalSetup({ configPath: f.config });
+    output(report);
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
+  const config = await loadConfig(f.config);
   let tokenStoreFactory = null;
   const providerModule = String(process.env.ETSY_HUB_TOKEN_PROVIDER_MODULE || '').trim();
   if (providerModule) {
@@ -126,6 +141,21 @@ async function main() {
   const shop = f.shop || null;
   const backup = !f['no-backup'];
   let result;
+
+  if (p[0] === 'report') {
+    if (p[1] === 'low-stock') {
+      const threshold = f.threshold === undefined ? 3 : Number(f.threshold);
+      const limit = f.limit === undefined ? 10 : Number(f.limit);
+      return output(await buildLowStockReport(hub, { shop: f.shop || null, threshold, limit }));
+    }
+    if (p[1] === 'unshipped') {
+      const limit = f.limit === undefined ? 20 : Number(f.limit);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('--limit must be between 1 and 100');
+      const result = await hub.listReceipts({ shop: f.shop || null, limit, wasPaid: true, wasShipped: false });
+      return output(summarizeUnshippedReceipts(result, { shop: f.shop || config.default_shop }));
+    }
+    throw new Error('Unknown report: low-stock or unshipped');
+  }
 
   if (p[0] === 'shops') return output(publicConfig(config));
 

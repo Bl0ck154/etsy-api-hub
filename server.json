@@ -7,12 +7,12 @@
     "url": "https://github.com/Bl0ck154/etsy-seller-mcp-hub",
     "source": "github"
   },
-  "version": "0.3.1",
+  "version": "0.4.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "etsy-seller-mcp-hub",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "transport": {
         "type": "stdio"
       },

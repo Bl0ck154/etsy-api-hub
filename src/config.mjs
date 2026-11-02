@@ -1,10 +1,22 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { homedir } from 'node:os';
 import { inputError } from './errors.mjs';
 
 export const DEFAULT_CONFIG_PATH = '/etc/etsy-api-hub/config.json';
 
-export async function loadConfig(file = process.env.ETSY_HUB_CONFIG || DEFAULT_CONFIG_PATH) {
+export async function loadConfig(file) {
+  if (!file) {
+    file = process.env.ETSY_HUB_CONFIG;
+    if (!file) {
+      const homeFile = path.join(homedir(), '.config', 'etsy-seller-mcp-hub', 'config.json');
+      try { await fs.access(homeFile); file = homeFile; }
+      catch (error) {
+        if (error.code !== 'ENOENT') file = homeFile; // Report permissions errors instead of silently using a different config.
+        else file = DEFAULT_CONFIG_PATH;
+      }
+    }
+  }
   let text;
   try {
     text = await fs.readFile(file, 'utf8');

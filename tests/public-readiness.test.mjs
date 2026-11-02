@@ -17,12 +17,12 @@ test('external binds require tokens', () => {
 test('HTTPS enforced for remote MCP public_base_url', () => {
   assert.throws(() => assertSafeServerConfig({server:{host:'127.0.0.1',public_base_url:'http://example.org'}},'secret'),/HTTPS/);
 });
-test('stdio lists 77 MCP tools without remote OAuth metadata', async () => {
-  assert.equal(localMcpTools().length,77);
+test('stdio lists 79 MCP tools without remote OAuth metadata', async () => {
+  assert.equal(localMcpTools().length,79);
   assert(localMcpTools().every(x => !Object.hasOwn(x,'securitySchemes')));
   const handle=createStdioHandler({call:async()=>({ok:true})});
   assert.equal((await handle({jsonrpc:'2.0',id:1,method:'initialize'})).result.serverInfo.name,'etsy-seller-mcp-hub');
-  assert.equal((await handle({jsonrpc:'2.0',id:2,method:'tools/list'})).result.tools.length,77);
+  assert.equal((await handle({jsonrpc:'2.0',id:2,method:'tools/list'})).result.tools.length,79);
   assert.deepEqual((await handle({jsonrpc:'2.0',id:3,method:'tools/call',params:{name:'etsy_shops',arguments:{}}})).result.structuredContent,{ok:true});
   assert.equal(await handle({jsonrpc:'2.0',method:'notifications/initialized'}),null);
 });
@@ -43,4 +43,13 @@ test('stdio optional read-only mode hides and blocks writes', async () => {
   const allowed=await handle({jsonrpc:'2.0',id:11,method:'tools/call',params:{name:'etsy_shops',arguments:{}}});
   assert.equal(allowed.result.structuredContent.ok,true);
   assert.equal(count,1);
+});
+
+test('read-only MCP includes new seller reports and hides write tools', () => {
+  const names = new Set(localMcpTools({ readOnly: true }).map(t => t.name));
+  assert.equal(names.size, 53);
+  assert(names.has('etsy_report_low_stock'));
+  assert(names.has('etsy_report_unshipped'));
+  assert(!names.has('etsy_request_write'));
+  assert(!names.has('etsy_request_multipart'));
 });

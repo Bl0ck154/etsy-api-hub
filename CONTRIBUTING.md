@@ -9,3 +9,7 @@ Bug reports, documentation fixes and focused pull requests are welcome.
 5. Do not include buyer data, token files or other private shop information in code, logs, issues or PRs.
 
 Keep typed tools on the shared EtsyHub transport. New endpoints can be called through the existing raw API interface until a typed tool is needed.
+
+## Seller workflows and security
+
+Read [Quick Start](docs/QUICKSTART.md). For each new feature, test malformed inputs, access control and sensitive-output redaction. Never run CI against real customer orders or Etsy write endpoints. Prefer a bounded read-only seller workflow over merely increasing raw endpoint tool count.
