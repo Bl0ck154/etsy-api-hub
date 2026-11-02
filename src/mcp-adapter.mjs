@@ -1,5 +1,6 @@
 import { publicConfig } from './config.mjs';
 import { ETSY_MCP_TOOLS } from './mcp-tools.mjs';
+import { buildLowStockReport, summarizeUnshippedReceipts } from './seller-reports.mjs';
 
 export { ETSY_MCP_TOOLS } from './mcp-tools.mjs';
 export const MODERN_MCP_VERSION = '2026-07-28';
@@ -133,6 +134,17 @@ export class EtsyMcpAdapter {
           configured_shops: publicConfig(this.config),
         };
 
+      case 'etsy_report_low_stock':
+        return buildLowStockReport(this.hub, {
+          shop: shopAlias, threshold: args.threshold === undefined ? 3 : Number(args.threshold),
+          limit: args.limit === undefined ? 10 : Number(args.limit)
+        });
+      case 'etsy_report_unshipped': {
+        const count = args.limit === undefined ? 20 : Number(args.limit);
+        if (!Number.isInteger(count) || count < 1 || count > 100) throw new Error('limit must be 1-100');
+        const result = await this.hub.listReceipts({ shop: shopAlias, limit: count, wasPaid: true, wasShipped: false });
+        return summarizeUnshippedReceipts(result, { shop: shopAlias });
+      }
       case 'etsy_shops':
         return publicConfig(this.config);
       case 'etsy_openapi_ping':

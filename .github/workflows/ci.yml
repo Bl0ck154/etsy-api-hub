@@ -25,5 +25,6 @@ jobs:
         with:
           node-version: '22'
       - run: npm run check
+      - run: node --check src/setup.mjs && node --check src/seller-reports.mjs
       - run: npm test
       - run: npm pack --dry-run --ignore-scripts

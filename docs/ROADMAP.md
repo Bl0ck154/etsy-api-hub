@@ -1,20 +1,33 @@
 # Roadmap
 
-## This branch (0.2.0 development)
+## Shipped in v0.3.1
 
-- Public README, contributor guide and MIT license
-- Local stdio MCP entrypoint for AI desktop clients
-- Fail-closed external HTTP bind requirement
-- Security boundary tests and GitHub Actions CI
-- Publishable npm manifest, Dockerfile and repository visuals
+- Public npm package and official MCP Registry entry
+- Seller-focused README, MIT license, CI and security instructions
+- Shared Etsy Open API v3 client, OAuth PKCE, safe listing mutation snapshots
+- Local stdio MCP (77 tools), CLI, local HTTP, private owner-only remote bridge
+- GitHub Releases and manual, OIDC-backed MCP Registry publishing
 
-## Not implemented yet
+## Working toward the next release (unreleased)
 
-- Tenant-isolated OAuth for unrelated Etsy sellers
-- Standards-based remote OAuth for additional third-party clients
-- Per-tool authorization scopes and confirmation policies
-- Resource-bounded large-file uploads without base64-in-JSON overhead
-- Live end-to-end Etsy staging fixtures and publicly published npm/Docker packages
-- MCP Registry and third-party directory listings
+- Local onboarding with `etsyctl init` and offline diagnostics with `etsyctl doctor`
+- Seller read-only reports for low inventory and paid/unshipped orders
+- Additional security and mocked tests, setup docs, safe demo examples
+- Correct quick-start instructions and clarify the self-hosted security boundary
 
-This repo is designed for a trusted owner and stores Etsy OAuth credentials server-side. Do not run it as an unrestricted shared public service.
+## Future candidates
+
+- Multi-page low-stock inventory reporting using Etsy batch inventory API, with careful rate limiting and missing-record handling
+- More seller-specific reports only after validating API schemas and scope requirements
+- Stream/bound large file uploads without base64 JSON memory spikes
+- Better non-ChatGPT MCP clients using local stdio and reliable OS-specific installation help
+- CI integration tests with **synthetic** configuration and no customer credentials
+- Publish a verified Glama entry and add the badge to the pending awesome-mcp-servers PR
+
+## Explicitly outside current scope
+
+- Hosting a shared multi-seller SaaS MCP endpoint or accepting strangers' Etsy tokens
+- Live customer Etsy writes in public CI
+- Unlimited remote MCP login without per-user authorization and tenant isolation
+
+See [Security boundaries](SECURITY-BOUNDARIES.md).

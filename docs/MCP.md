@@ -1,39 +1,66 @@
-# Etsy Seller MCP Hub: MCP client setup
+# Connect Etsy Seller MCP Hub to AI clients
 
-## Claude Desktop / Cursor (local stdio)
+First run [Quick Start](QUICKSTART.md). An Etsy Open API v3 key and OAuth authorization are needed for live shop operations.
 
-Clone this repository, configure your own Etsy credentials and create an ETSY_HUB_CONFIG JSON file. Run `npm link` inside the cloned repository or install `etsy-seller-mcp-hub` from npm after publication. If your client has a user-specific executable search path, use an absolute path to the project script.
+## Claude Desktop
 
-Example MCP client configuration:
+Install: `npm install -g etsy-seller-mcp-hub`. Open Settings → Developer → Edit Config and add to `claude_desktop_config.json`:
 
-~~~json
+```json
 {
   "mcpServers": {
-    "etsy": {
-      "command": "node",
-      "args": ["/absolute/path/to/etsy-seller-mcp-hub/bin/etsy-mcp.mjs"],
-      "env": {
-        "ETSY_HUB_CONFIG": "/absolute/path/to/config.json"
-      }
+    "etsy-seller": {
+      "command": "etsy-mcp",
+      "env": { "ETSY_MCP_READ_ONLY": "1" }
     }
   }
 }
-~~~
+```
 
-The local stdio server reads newline-delimited JSON-RPC on stdin and sends responses on stdout. Credentials remain on your own machine. The AI client can request write operations, so configure its approval settings. For read-only access, add "ETSY_MCP_READ_ONLY": "1" to the client env configuration.
+Restart Claude Desktop. If `etsy-mcp` is not on the app's PATH, replace `command` with its absolute path (from `which etsy-mcp` on macOS/Linux or `where.exe etsy-mcp` on Windows). JSON Windows paths must use forward slashes or double backslashes.
 
-## ChatGPT (remote, owner-only)
+## Cursor
 
-The existing remote HTTP endpoint is /mcp, with OAuth discovery under /.well-known/ and /oauth/. It intentionally validates a specific ChatGPT client and requires the owner's password. This flow is private, not a shared sign-in system for unrelated sellers.
+Open Cursor MCP settings or `.cursor/mcp.json` and use the same `mcpServers` JSON. For a non-default config, add `ETSY_HUB_CONFIG` with the absolute path. Restart the client.
 
-Use an HTTPS reverse proxy, a configured server.auth_token_file and server.public_base_url before exposing the endpoint. Do not give other people access to your owner's instance.
+## VS Code
 
-## Missing functionality
+Use the `MCP: Add Server` command or your workspace MCP configuration:
 
-A generic multi-user OAuth platform, tenant-isolated credentials and broad non-ChatGPT remote OAuth support are not yet implemented. Use the local stdio mode for other AI clients rather than weakening the production owner's OAuth restrictions.
+```json
+{
+  "servers": {
+    "etsy-seller": {
+      "type": "stdio",
+      "command": "etsy-mcp",
+      "env": { "ETSY_MCP_READ_ONLY": "1" }
+    }
+  }
+}
+```
 
-## Security
+## Without a global install
 
-Read-only tools are suitable for exploratory prompts. Review write requests before approving them. The generic etsy_request_write and etsy_request_multipart tools expose broad Etsy API functionality and may not automatically save listing backups.
+The npm package has two executables, so bare `npx -y etsy-seller-mcp-hub` can be ambiguous. Run the explicit binary:
 
-For Seller Apps and existing Personal Keys, see [API access requirements](ACCESS.md). The app type limits Etsy permissions independently of MCP.
+```bash
+npx --yes --package=etsy-seller-mcp-hub etsy-mcp
+```
+
+In AI client JSON you can use `"command": "npx"` and `"args": ["--yes", "--package=etsy-seller-mcp-hub", "etsy-mcp"]`, or install globally and use the binary path.
+
+## Security and troubleshooting
+
+Local MCP exposes 79 tools, with 53 in read-only mode. The read-only tool filter does not change Etsy OAuth scopes. Shop content returned by MCP may be transmitted to your AI model provider; choose appropriate client privacy settings.
+
+- `spawn ENOENT`: set the absolute path to the installed binary.
+- Server won't start: run `etsyctl doctor` and check `ETSY_HUB_CONFIG`.
+- Tool list loads but real data fails: fix Etsy credentials or OAuth scopes. `tools/list` does not call Etsy.
+- Callback mismatch: Etsy requires an exact registered HTTPS redirect URI.
+- Changed OAuth scopes: reauthorize via Etsy.
+
+## ChatGPT: remote owner-only bridge
+
+The optional remote `/mcp` endpoint is designed for one approved ChatGPT client and an owner's password. It is **not** a public seller login system and has no tenant isolation. Do not share your Etsy credentials with a stranger's hosted MCP. For alternatives, use local stdio with your own account, or self-host your own private HTTPS deployment with authentication.
+
+Read [Security boundaries](SECURITY-BOUNDARIES.md).

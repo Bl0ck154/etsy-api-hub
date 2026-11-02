@@ -2,6 +2,8 @@
 
 Report security issues through GitHub private vulnerability reporting, if available, or contact the repository owner privately. Do not publish active credential exploits.
 
+Read [Security boundaries](docs/SECURITY-BOUNDARIES.md) before self-hosting. Do not send Etsy credentials to this repository's maintainer.
+
 ## Deployment
 
 - The HTTP server binds to 127.0.0.1 by default. A non-loopback bind requires a configured nonempty bearer token.
