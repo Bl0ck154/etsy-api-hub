@@ -60,7 +60,7 @@ etsyctl shops
 etsyctl listing list active --limit 5
 ```
 
-The code is single-use, and the state expires. Authorization completion verifies the shop ID matches your configured shop. Treat code and state as temporary credentials. For a Windows shell, enter the commands individually, without leading `$` characters.
+The code is single-use, and the local PKCE state expires after 15 minutes. It is consumed on the first completion attempt, including failures. If an exchange fails, restart OAuth to create a fresh authorization state. Authorization completion verifies the shop ID matches your configured shop. Treat code and state as temporary credentials. For a Windows shell, enter the commands individually, without leading `$` characters.
 
 If you later need write operations, deliberately modify `oauth_scopes` and **reauthorize**. Always approve live changes in your AI assistant.
 

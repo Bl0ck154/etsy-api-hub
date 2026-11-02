@@ -42,3 +42,24 @@ test('refresh uses shared secret header and persists rotated token pair', async 
   assert.equal(saved.refresh_token, 'new-refresh');
   assert.equal((await fs.stat(file)).mode & 0o777, 0o600);
 });
+
+test('token refresh errors do not echo sensitive fields from Etsy responses', async t => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'etsy-refresh-error-'));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  const credentials = path.join(dir, 'credentials.json');
+  const sentinel = 'sensitive-marker-not-for-output';
+  await fs.writeFile(credentials, JSON.stringify({
+    client_id: 'example_key', secret: 'example_secret',
+    access_token: 'dummy_access', refresh_token: 'dummy_refresh',
+    expires_at: Date.now() - 1
+  }), { mode: 0o600 });
+  const store = new TokenFileStore(credentials, {
+    fetchImpl: async () => new Response(JSON.stringify({ error_description: sentinel, error: sentinel }), { status: 401 }),
+  });
+  await assert.rejects(store.refresh('dummy_access'), error => {
+    assert.equal(error.code, 'TOKEN_REFRESH_FAILED');
+    assert.equal(error.status, 401);
+    assert.equal(JSON.stringify({ message: error.message, details: error.details }).includes(sentinel), false);
+    return true;
+  });
+});

@@ -102,7 +102,7 @@ export class TokenFileStore {
       let payload;
       try { payload = text ? JSON.parse(text) : {}; } catch { payload = { raw: text }; }
       if (!response.ok || !payload?.access_token) {
-        throw new EtsyHubError(payload?.error_description || payload?.error || `Etsy token refresh failed with HTTP ${response.status}`, {
+        throw new EtsyHubError(`Etsy token refresh failed with HTTP ${response.status}`, {
           code: 'TOKEN_REFRESH_FAILED',
           status: response.status || 502,
           details: { status: response.status },
