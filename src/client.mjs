@@ -46,11 +46,15 @@ async function parseResponse(response) {
 }
 
 export class EtsyClient {
-  constructor({ tokenStore, fetchImpl = fetch, max429Retries = 3 } = {}) {
+  constructor({ tokenStore, fetchImpl = fetch, max429Retries = 3, maxUploadBytes = 64 * 1024 * 1024 } = {}) {
     if (!tokenStore) throw inputError('tokenStore is required');
     this.tokenStore = tokenStore;
     this.fetchImpl = fetchImpl;
     this.max429Retries = max429Retries;
+    if (!Number.isSafeInteger(maxUploadBytes) || maxUploadBytes < 1 || maxUploadBytes > 192 * 1024 * 1024) {
+      throw inputError('maxUploadBytes must be an integer from 1 to 201326592', 'INVALID_UPLOAD_LIMIT');
+    }
+    this.maxUploadBytes = maxUploadBytes;
   }
 
   async request({ method = 'GET', apiPath, query = null, body = undefined, form = null, files = null, multipart = false, headers = {} } = {}, state = {}) {
@@ -82,15 +86,29 @@ export class EtsyClient {
         if (Array.isArray(value)) for (const item of value) multipartBody.append(key, String(item));
         else multipartBody.append(key, String(value));
       }
+      let totalFileBytes = 0;
       for (const file of files || []) {
         let bytes;
         let fallbackName = 'upload.bin';
         if (file.path) {
+          const info = await fs.stat(file.path);
+          if (!info.isFile()) throw inputError('Upload source must be a regular file', 'INVALID_FILE_DATA');
+          if (info.size > this.maxUploadBytes - totalFileBytes) {
+            throw inputError('Multipart upload exceeds configured size limit', 'UPLOAD_TOO_LARGE');
+          }
           bytes = await fs.readFile(file.path);
           fallbackName = path.basename(file.path);
         } else if (Buffer.isBuffer(file.bytes) || file.bytes instanceof Uint8Array) {
-          bytes = Buffer.from(file.bytes);
+          if (file.bytes.byteLength > this.maxUploadBytes - totalFileBytes) {
+            throw inputError('Multipart upload exceeds configured size limit', 'UPLOAD_TOO_LARGE');
+          }
+          bytes = Buffer.isBuffer(file.bytes) ? file.bytes : Buffer.from(file.bytes);
         } else if (typeof file.content_base64 === 'string') {
+          const remaining = this.maxUploadBytes - totalFileBytes;
+          const encodedLimit = Math.ceil(remaining / 3) * 4 + 4096;
+          if (file.content_base64.length > encodedLimit) {
+            throw inputError('Multipart upload exceeds configured size limit', 'UPLOAD_TOO_LARGE');
+          }
           const compact = file.content_base64.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
           if (!compact || compact.length % 4 === 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) {
             throw inputError(`Invalid base64 payload for multipart field ${file.field || 'file'}`, 'INVALID_FILE_DATA');
@@ -100,6 +118,10 @@ export class EtsyClient {
           throw inputError(`Multipart field ${file.field || 'file'} requires path, bytes, or content_base64`, 'INVALID_FILE_DATA');
         }
         if (!bytes.length) throw inputError(`Multipart field ${file.field || 'file'} is empty`, 'INVALID_FILE_DATA');
+        if (bytes.length > this.maxUploadBytes - totalFileBytes) {
+          throw inputError('Multipart upload exceeds configured size limit', 'UPLOAD_TOO_LARGE');
+        }
+        totalFileBytes += bytes.length;
         const fileName = file.name || fallbackName;
         const mime = file.mime || file.mime_type || (file.path ? mimeFor(file.path) : mimeFor(fileName));
         multipartBody.append(file.field, new Blob([bytes], { type: mime }), fileName);

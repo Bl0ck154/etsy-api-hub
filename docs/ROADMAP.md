@@ -45,3 +45,8 @@
 - Unlimited remote MCP login without per-user authorization and tenant isolation
 
 See [Security boundaries](SECURITY-BOUNDARIES.md).
+
+## v0.4.2 - upload memory safeguards
+
+- Aggregate size limit for multipart local paths, byte buffers and base64 before allocation.
+- Seven new regression tests; true streaming remains open.
