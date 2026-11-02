@@ -1,6 +1,6 @@
 {
   "name": "etsy-api-hub",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Etsy Open API v3 toolkit with 77 MCP tools, CLI, local HTTP gateway and safe shop workflows",
   "type": "module",
   "bin": {
@@ -46,6 +46,11 @@
     "README.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
-    "LICENSE"
-  ]
+    "LICENSE",
+    "server.json"
+  ],
+  "mcpName": "io.github.bl0ck154/etsy-mcp-hub",
+  "publishConfig": {
+    "access": "public"
+  }
 }
