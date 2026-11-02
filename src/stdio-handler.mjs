@@ -20,7 +20,7 @@ export function createStdioHandler(adapter, { readOnly = false } = {}) {
       return { jsonrpc: '2.0', id, result: {
         protocolVersion: '2025-06-18',
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: 'etsy-seller-mcp-hub', version: '0.4.0' }
+        serverInfo: { name: 'etsy-seller-mcp-hub', version: '0.4.1' }
       }};
     }
     if (method === 'ping') return { jsonrpc: '2.0', id, result: {} };

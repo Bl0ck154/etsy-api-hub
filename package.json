@@ -1,6 +1,6 @@
 {
   "name": "etsy-seller-mcp-hub",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Self-hosted Etsy seller MCP server with 79 tools, private OAuth, safe CLI onboarding and shop reports",
   "type": "module",
   "bin": {

@@ -82,3 +82,63 @@ test('inventory 404 for no-record listings is counted without hiding other failu
     ...hub, getInventory: async () => { throw Object.assign(new Error('auth error'), { status: 401 }); }
   }), /auth error/);
 });
+
+test('low-stock pagination passes offset to the Hub and stops on final page', async () => {
+  const calls = [];
+  const hub = {
+    listListings: async options => {
+      calls.push(options);
+      return { data: { count: 27, results: [{ listing_id: 12, title: 'Test' }] } };
+    },
+    getInventory: async () => ({ data: { products: [{ offerings: [{ quantity: 1, is_enabled: true }] }] } })
+  };
+  let report = await buildLowStockReport(hub, { offset: 25, limit: 2 });
+  assert.equal(calls[0].offset, 25);
+  assert.equal(report.offset, 25);
+  assert.equal(report.next_offset, 26);
+  assert.equal(report.flagged_count, 1);
+  report = await buildLowStockReport(hub, { offset: 26, limit: 2 });
+  assert.equal(report.next_offset, null);
+  assert.equal(report.partial_page, false);
+});
+test('low-stock rejects invalid offsets before calling Etsy API', async () => {
+  let calls = 0;
+  const hub = { listListings: async () => { calls++; return { data: { results: [] } }; } };
+  for (const offset of [-1, NaN, 1.7, 1000001]) {
+    await assert.rejects(buildLowStockReport(hub, { offset }), /--offset/);
+  }
+  assert.equal(calls, 0);
+});
+test('unshipped report paginates and keeps personal data out of the next page', () => {
+  const result = summarizeUnshippedReceipts({ data: { count: 32, results: [
+    { receipt_id: 8, buyer_email: 'secret@example.invalid', name: 'Private', is_paid: true, is_shipped: false }
+  ] } }, { shop: 'main', offset: 20, limit: 10 });
+  assert.equal(result.next_offset, 21);
+  assert.equal(result.offset, 20);
+  assert.equal(result.total_matching, 32);
+  assert.equal(JSON.stringify(result).includes('secret@example.invalid'), false);
+  const last = summarizeUnshippedReceipts({ data: { count: 21, results: [{ receipt_id: 9 }] } }, { offset: 20, limit: 10 });
+  assert.equal(last.next_offset, null);
+});
+test('MCP paid/unshipped report forwards offset, minimizes buyers and rejects invalid ranges', async () => {
+  const calls = [];
+  const adapter = new EtsyMcpAdapter({
+    listReceipts: async opts => {
+      calls.push(opts);
+      return { data: { count: 12, results: [{ receipt_id: 22, name: 'Private', buyer_email: 'hidden@invalid.example' }] } };
+    }
+  }, {
+    default_shop: 'main',
+    shops: { main: { shop_id: '123456', credential_file: '/unused' } },
+    server: { host: '127.0.0.1', port: 3737 }
+  });
+  const report = await adapter.call('etsy_report_unshipped', { offset: 10, limit: 2 });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].offset, 10);
+  assert.equal(calls[0].wasPaid, true);
+  assert.equal(calls[0].wasShipped, false);
+  assert.equal(report.next_offset, 11);
+  assert.equal(JSON.stringify(report).includes('hidden@invalid.example'), false);
+  await assert.rejects(adapter.call('etsy_report_unshipped', { offset: -1 }), /offset/);
+  assert.equal(calls.length, 1);
+});

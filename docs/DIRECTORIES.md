@@ -2,20 +2,17 @@
 
 Our package is listed on [npm](https://www.npmjs.com/package/etsy-seller-mcp-hub) and the [official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=etsy-seller-mcp-hub).
 
-## Glama listing
+## Glama listing: already published
 
-Glama requires the **repository maintainer** to authenticate with GitHub and submit their repository to its [MCP server directory](https://glama.ai/mcp/servers). Submit:
+Our server has a [Glama profile](https://glama.ai/mcp/servers/Bl0ck154/etsy-seller-mcp-hub). The live score badge is available at:
 
-- Repository: `https://github.com/Bl0ck154/etsy-seller-mcp-hub`
-- Name: `Etsy Seller MCP Hub`
-- Description: `Self-hosted Etsy Open API v3 MCP server for shop owners: 79 tools, safe onboarding, read-only stock and order reports, CLI and OAuth.`
-- A source-controlled test Dockerfile is at `Dockerfile.glama`.
+`https://glama.ai/mcp/servers/Bl0ck154/etsy-seller-mcp-hub/badges/score.svg`
 
-Glama may require a Dockerfile upload to execute its health checks. `Dockerfile.glama` uses **synthetic config only**. The process can initialize and advertise tools without seller credentials; it cannot use live Etsy APIs. **Never upload real OAuth tokens or customer data** to a directory/registry service.
+The badge displays A and indicates that the maintainer has claimed the listing. It is linked from our README and [upstream awesome-mcp-servers PR #18306](https://github.com/punkpeye/awesome-mcp-servers/pull/18306). Do not submit a duplicate server.
 
-After Glama accepts and scores the project, add the verified score badge to the existing [awesome-mcp-servers PR #18306](https://github.com/punkpeye/awesome-mcp-servers/pull/18306), using Glama's **actual** server URL, not a guessed one. The upstream bot currently requires a score badge. Do not publish a fake/unverified quality score.
+Glama currently says the source server **cannot be deployed on Glama**. The package is nonetheless available through npm and the official MCP Registry. Shared hosted deployment is intentionally out of scope: sellers self-host with their own credentials.
 
-The official Registry package may be automatically indexed over time, but that does not substitute for Glama's own ownership and health checks.
+`Dockerfile.glama` uses synthetic, no-credential introspection. Never provide OAuth secrets or customer data to a directory scanner. The upstream PR remains open until external maintainers merge it. A directory score is not an independent security certification.
 
 ## Other possible catalogues
 

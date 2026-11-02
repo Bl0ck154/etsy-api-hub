@@ -15,8 +15,8 @@ function usage() {
 Usage:
   etsyctl init --shop-id SHOP_ID [--config PATH] [--credential-file PATH]
   etsyctl doctor [--config PATH]
-  etsyctl report low-stock [--threshold N] [--limit N] [--shop alias]
-  etsyctl report unshipped [--limit N] [--shop alias]
+  etsyctl report low-stock [--threshold N] [--limit N] [--offset N] [--shop alias]
+  etsyctl report unshipped [--limit N] [--offset N] [--shop alias]
   etsyctl shops
   etsyctl oauth start --shop alias --redirect https://... [--scopes "scope1 scope2"]
   etsyctl oauth complete --state STATE --code CODE
@@ -146,13 +146,16 @@ async function main() {
     if (p[1] === 'low-stock') {
       const threshold = f.threshold === undefined ? 3 : Number(f.threshold);
       const limit = f.limit === undefined ? 10 : Number(f.limit);
-      return output(await buildLowStockReport(hub, { shop: f.shop || null, threshold, limit }));
+      const offset = f.offset === undefined ? 0 : Number(f.offset);
+      return output(await buildLowStockReport(hub, { shop: f.shop || null, threshold, limit, offset }));
     }
     if (p[1] === 'unshipped') {
       const limit = f.limit === undefined ? 20 : Number(f.limit);
+      const offset = f.offset === undefined ? 0 : Number(f.offset);
       if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('--limit must be between 1 and 100');
-      const result = await hub.listReceipts({ shop: f.shop || null, limit, wasPaid: true, wasShipped: false });
-      return output(summarizeUnshippedReceipts(result, { shop: f.shop || config.default_shop }));
+      if (!Number.isInteger(offset) || offset < 0 || offset > 1000000) throw new Error('--offset must be between 0 and 1000000');
+      const result = await hub.listReceipts({ shop: f.shop || null, limit, offset, wasPaid: true, wasShipped: false });
+      return output(summarizeUnshippedReceipts(result, { shop: f.shop || config.default_shop, limit, offset }));
     }
     throw new Error('Unknown report: low-stock or unshipped');
   }

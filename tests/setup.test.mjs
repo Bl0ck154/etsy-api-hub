@@ -109,7 +109,25 @@ test('MCP stdio can introspect with a synthetic config and without Etsy credenti
   });
   assert.equal(response.status, 0, response.stderr);
   const messages = response.stdout.trim().split('\n').map(JSON.parse);
-  assert.equal(messages[0].result.serverInfo.version, '0.4.0');
+  assert.equal(messages[0].result.serverInfo.version, '0.4.1');
   assert.equal(messages[1].result.tools.length, 53);
   assert.equal(response.stderr, '');
+});
+
+test('init rolls back newly created config if credential creation fails', async t => {
+  const f = await fixture(t);
+  const parent = path.join(f.dir, 'occupied');
+  await fs.writeFile(parent, 'not-a-directory', { mode: 0o600 });
+  await assert.rejects(initLocalSetup({
+    shopId: '77', configPath: f.configPath, credentialPath: path.join(parent, 'secret.json')
+  }), /ENOTDIR|EEXIST/);
+  await assert.rejects(fs.stat(f.configPath), { code: 'ENOENT' });
+});
+test('doctor treats credentials that contain JSON arrays as invalid', async t => {
+  const f = await fixture(t);
+  const paths = await initLocalSetup({ shopId: '120', configPath: f.configPath });
+  await fs.writeFile(paths.credentials_file, JSON.stringify([{ client_id: 'a', secret: 'b' }]));
+  const d = await diagnoseLocalSetup({ configPath: f.configPath });
+  assert.equal(d.ok, false);
+  assert(d.checks.some(x => x.name === 'credentials:main' && x.status === 'fail'));
 });

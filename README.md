@@ -6,12 +6,13 @@
 [![npm](https://img.shields.io/npm/v/etsy-seller-mcp-hub)](https://www.npmjs.com/package/etsy-seller-mcp-hub)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=etsy-seller-mcp-hub)
+[![Glama score](https://glama.ai/mcp/servers/Bl0ck154/etsy-seller-mcp-hub/badges/score.svg)](https://glama.ai/mcp/servers/Bl0ck154/etsy-seller-mcp-hub)
 
 **Open-source MCP server for Etsy sellers.** Manage your own Etsy shop's listings, orders, inventory, personalization and media with AI assistants, scripts or local applications. Built on the Etsy Open API v3 with **79 MCP tools**, a CLI and a local HTTP gateway.
 
 This is a **seller-side shop management toolkit**. It does not monitor consumer prices, search for buyer deals or automate shopping.
 
-**[5-minute setup](docs/QUICKSTART.md)** · [MCP configs](docs/MCP.md) · [Seller workflows demo](docs/DEMO.md) · [Existing API keys](docs/ACCESS.md) · [Hosting and privacy](docs/SECURITY-BOUNDARIES.md) · [Roadmap](docs/ROADMAP.md) · [Directories](docs/DIRECTORIES.md)
+**[First-time setup](docs/QUICKSTART.md)** · [MCP configs](docs/MCP.md) · [Seller workflows demo](docs/DEMO.md) · [Existing API keys](docs/ACCESS.md) · [Hosting and privacy](docs/SECURITY-BOUNDARIES.md) · [Roadmap](docs/ROADMAP.md) · [Glama listing](https://glama.ai/mcp/servers/Bl0ck154/etsy-seller-mcp-hub) · [FAQ](docs/FAQ.md) · [Directories](docs/DIRECTORIES.md)
 
 > The term 'Etsy' is a trademark of Etsy, Inc. This Application uses Etsy's API, but is not endorsed or certified by Etsy.
 
@@ -73,8 +74,8 @@ Configuration examples use Linux filesystem locations. Replace them with absolut
 ```bash
 etsyctl --help
 etsyctl doctor
-etsyctl report low-stock --threshold 3 --limit 10
-etsyctl report unshipped --limit 20
+etsyctl report low-stock --threshold 3 --limit 10 --offset 0
+etsyctl report unshipped --limit 20 --offset 0
 ```
 
 The seller reports are read-only and do not return buyer contact information in the paid/unshipped summary.

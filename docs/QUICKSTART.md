@@ -1,4 +1,4 @@
-# Quick start: connect your own Etsy shop
+# First-time setup: connect your own Etsy shop
 
 **Audience:** Etsy sellers and developers operating their own local MCP server. This project is not a hosted Etsy sign-in service; you keep credentials on your computer.
 
@@ -91,11 +91,11 @@ Supply the absolute path if the executable is not on your AI client's PATH. For 
 CLI alternatives:
 
 ```bash
-etsyctl report low-stock --limit 10 --threshold 3
-etsyctl report unshipped --limit 20
+etsyctl report low-stock --limit 10 --threshold 3 --offset 0
+etsyctl report unshipped --limit 20 --offset 0
 ```
 
-Low-stock checks at most 25 listings per call to limit Etsy API usage. Some listings have no inventory records. Reports never modify shop data.
+Low-stock checks at most 25 listings per call to limit Etsy API usage. Some listings have no inventory records. Reports never modify shop data. Both reports return `next_offset` when another page is available; pass that value as `--offset` on the next call. Low-stock checks one page of listings at a time, so `flagged_count` is a page result, not the total for a whole shop. Large shops should respect Etsy rate limits.
 
 ## Troubleshooting
 
