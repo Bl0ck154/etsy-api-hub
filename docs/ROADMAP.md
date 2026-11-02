@@ -24,18 +24,18 @@ This is a seller-hosted MCP server. Any user operates their own instance with th
 - Tests for concurrent refresh, replay after restart, invalid tokens, streamed multipart, safe header validation and altered files.
 - Manual cross-platform Windows, macOS and Linux GitHub Actions workflow.
 
-## P0 — proof of real-world readiness
+## Verified quality evidence
 
-- End-to-end read-only smoke test against a dedicated, consented Etsy test shop; no customer data in CI.
-- Independent review of revocation/logout for remote OAuth; mock one-time refresh-token rotation has been added.
-- Fresh install on Windows, macOS and Linux by an independent user.
-
-Track evidence in [issue #16](https://github.com/Bl0ck154/etsy-seller-mcp-hub/issues/16).
+- Public npm 0.5.0 installs cleanly and stdio MCP initialization and read-only tool discovery work in isolation.
+- Mocked security tests and Linux, macOS and Windows CI matrix passed.
+- Existing authorized Cloudflare Etsy_API provider completed a consented draft create/read/update/readback/delete in second; the draft was removed.
+- The private My_Etsy remote connector still needs separate second-shop OAuth reconciliation; see [Connector status](CONNECTORS.md) and [issue #16](https://github.com/Bl0ck154/etsy-seller-mcp-hub/issues/16).
+- Independent security certification and an unaided first-time OAuth onboarding exercise remain unverified.
 
 ## P1 — improvements with remaining work
 
-- Live validation of bounded local-file streaming and possible remote media handoff ([issue #5](https://github.com/Bl0ck154/etsy-seller-mcp-hub/issues/5)).
-- Upstream [awesome-mcp-servers PR #18306](https://github.com/punkpeye/awesome-mcp-servers/pull/18306) is awaiting its maintainers. Glama profile already exists; badge already added ([issue #13](https://github.com/Bl0ck154/etsy-seller-mcp-hub/issues/13)).
+- Optional remote base64 media handoff is not planned without a demonstrated need. Local file uploads already stream; base64 stays buffered and size-limited.
+- Upstream [awesome-mcp-servers PR #18306](https://github.com/punkpeye/awesome-mcp-servers/pull/18306) remains open; our Glama badge and internal submission are complete.
 
 ## Out of scope
 

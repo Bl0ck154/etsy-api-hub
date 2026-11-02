@@ -15,6 +15,6 @@ Reviewed against v0.5.0 source code. This is an internal code review backed by m
 | Remote HTTP | Auth token required for non-loopback binding; HTTPS required for remote public URL | Independent deployment and reverse proxy audit outstanding |
 | Packaging | CI, npm provenance, official MCP Registry metadata, live npm smoke-install | Manual cross-platform test matrix added; independent OAuth onboarding still unverified |
 
-Use only synthetic fixtures in public CI. Never upload seller tokens or customer records to a directory scanner or issue tracker. Do not expose the owner-only remote MCP as a public multi-seller service.
+Owner-approved live draft CRUD has been verified through the separately connected Cloudflare Etsy_API provider. This does not prove first-time OAuth onboarding or an independent audit. The private My_Etsy remote MCP still requires second-shop OAuth reconciliation; see [Connectors](CONNECTORS.md).\n\nUse only synthetic fixtures in public CI. Never upload seller tokens or customer records to a directory scanner or issue tracker. Do not expose the owner-only remote MCP as a public multi-seller service.
 
 Security concerns can be reported following [SECURITY.md](../SECURITY.md).

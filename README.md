@@ -12,7 +12,7 @@
 
 This is a **seller-side shop management toolkit**. It does not monitor consumer prices, search for buyer deals or automate shopping.
 
-**[First-time setup](docs/QUICKSTART.md)** · [Security review](docs/SECURITY-REVIEW.md) · [MCP configs](docs/MCP.md) · [Seller workflows demo](docs/DEMO.md) · [Existing API keys](docs/ACCESS.md) · [Hosting and privacy](docs/SECURITY-BOUNDARIES.md) · [Roadmap](docs/ROADMAP.md) · [Glama listing](https://glama.ai/mcp/servers/Bl0ck154/etsy-seller-mcp-hub) · [FAQ](docs/FAQ.md) · [Directories](docs/DIRECTORIES.md)
+**[First-time setup](docs/QUICKSTART.md)** · [Security review](docs/SECURITY-REVIEW.md) · [Connector troubleshooting](docs/CONNECTORS.md) · [MCP configs](docs/MCP.md) · [Seller workflows demo](docs/DEMO.md) · [Existing API keys](docs/ACCESS.md) · [Hosting and privacy](docs/SECURITY-BOUNDARIES.md) · [Roadmap](docs/ROADMAP.md) · [Glama listing](https://glama.ai/mcp/servers/Bl0ck154/etsy-seller-mcp-hub) · [FAQ](docs/FAQ.md) · [Directories](docs/DIRECTORIES.md)
 
 > The term 'Etsy' is a trademark of Etsy, Inc. This Application uses Etsy's API, but is not endorsed or certified by Etsy.
 
