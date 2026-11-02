@@ -1,52 +1,39 @@
 # Roadmap
 
-## Shipped in v0.3.1
+This is a seller-hosted MCP server. Any user operates their own instance with their own authorized Etsy API access. A shared public login service is not planned.
 
-- Public npm package and official MCP Registry entry
-- Seller-focused README, MIT license, CI and security instructions
-- Shared Etsy Open API v3 client, OAuth PKCE, safe listing mutation snapshots
-- Local stdio MCP (77 tools), CLI, local HTTP, private owner-only remote bridge
-- GitHub Releases and manual, OIDC-backed MCP Registry publishing
+## Available today (v0.4.2)
 
-## Working toward the next release (unreleased)
+- 79 MCP tools, of which 53 are read-only; local CLI, stdio and optional private HTTP.
+- Own-shop OAuth PKCE, refreshing tokens, typed listing updates and backups where supported.
+- Quick Start, offline setup diagnostics, stock and unshipped-order reports with paging.
+- npm releases via short-lived GitHub OIDC, official MCP Registry listing, maintainer-claimed Glama profile with A badge.
+- Input limits for multipart file uploads (64 MiB decoded-byte aggregate by default), mocked tests and CI.
 
-- Local onboarding with `etsyctl init` and offline diagnostics with `etsyctl doctor`
-- Seller read-only reports for low inventory and paid/unshipped orders
-- Additional security and mocked tests, setup docs, safe demo examples
-- Correct quick-start instructions and clarify the self-hosted security boundary
+## Next patch (v0.4.3)
 
-## Shipped in v0.4.1
+- Consume each local Etsy OAuth PKCE state only once, even on failure or concurrent callbacks.
+- Avoid returning raw Etsy HTTP/OAuth error bodies or reflected seller information in error messages.
+- Default OAuth scopes and the example config to read-only; grant write scopes only deliberately.
+- Expand offline security regression tests and publish the review findings.
 
-- Existing Glama listing and verified A-rated badge connected to README and upstream PR
-- Bounded pagination for seller low-stock and unshipped reports with `next_offset`
-- Safe setup rollback if the credential placeholder cannot be created
-- Additional pagination, data minimization and configuration safety regression tests
+## P0 — proof of real-world readiness
 
-## Current limitations
+- End-to-end read-only smoke test against a dedicated, consented Etsy test shop; no customer data in CI.
+- Independent review of remote OAuth token lifecycles, including refresh token revocation and replay behavior.
+- Fresh install on Windows, macOS and Linux by an independent user.
 
-- Glama lists the server but cannot deploy it as a shared hosted connector.
-- The awesome-mcp-servers PR awaits external maintainer review and merge.
-- No independent live Etsy end-to-end validation in public CI.
-- Every seller still needs an approved v3 API key and OAuth setup.
+Track evidence in [issue #16](https://github.com/Bl0ck154/etsy-seller-mcp-hub/issues/16).
 
-## Future candidates
+## P1 — improvements with remaining work
 
-- Multi-page low-stock inventory reporting using Etsy batch inventory API, with careful rate limiting and missing-record handling
-- More seller-specific reports only after validating API schemas and scope requirements
-- Stream/bound large file uploads without base64 JSON memory spikes
-- Better non-ChatGPT MCP clients using local stdio and reliable OS-specific installation help
-- CI integration tests with **synthetic** configuration and no customer credentials
-- Follow up with upstream maintainers on the existing Glama-badged PR
+- True bounded streaming or upload handoff for larger media files ([issue #5](https://github.com/Bl0ck154/etsy-seller-mcp-hub/issues/5)).
+- Upstream [awesome-mcp-servers PR #18306](https://github.com/punkpeye/awesome-mcp-servers/pull/18306) is awaiting its maintainers. Glama profile already exists; badge already added ([issue #13](https://github.com/Bl0ck154/etsy-seller-mcp-hub/issues/13)).
 
-## Explicitly outside current scope
+## Out of scope
 
-- Hosting a shared multi-seller SaaS MCP endpoint or accepting strangers' Etsy tokens
-- Live customer Etsy writes in public CI
-- Unlimited remote MCP login without per-user authorization and tenant isolation
+- A publicly shared multi-seller OAuth connector that collects other owners' tokens.
+- Unrestricted remote third-party OAuth clients; the old optional enhancement was closed as not planned.
+- Live Etsy writes in public CI, fabricated testimonials, or paid GitHub stars.
 
-See [Security boundaries](SECURITY-BOUNDARIES.md).
-
-## v0.4.2 - upload memory safeguards
-
-- Aggregate size limit for multipart local paths, byte buffers and base64 before allocation.
-- Seven new regression tests; true streaming remains open.
+See [Security boundaries](SECURITY-BOUNDARIES.md) and [Security review](SECURITY-REVIEW.md).

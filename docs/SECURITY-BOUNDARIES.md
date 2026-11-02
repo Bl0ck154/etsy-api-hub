@@ -37,3 +37,5 @@ Public directories may clone, build, and inspect source metadata or introspect a
 - Filesystem compromise: local credentials are readable by processes running as the seller's OS user. Use OS protections and full disk encryption.
 
 Please see [SECURITY.md](../SECURITY.md) to report a vulnerability privately.
+
+For tested mitigations and outstanding quality gates, see [Security review](SECURITY-REVIEW.md).

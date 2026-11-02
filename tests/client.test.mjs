@@ -145,3 +145,28 @@ test('multipart accepts an upload exactly at its configured limit', async () => 
   assert.equal(state.calls, 1);
   assert.equal(d.meta.status, 200);
 });
+
+test('Etsy HTTP errors never reflect upstream secrets or buyer details', async () => {
+  const sentinel = 'sensitive-marker-not-for-output';
+  const client = new EtsyClient({
+    tokenStore: {
+      accessToken: async () => 'local_access',
+      apiKeyHeader: async () => 'local_key:secret',
+      refresh: async () => 'fresh_access',
+    },
+    fetchImpl: async () => new Response(JSON.stringify({
+      error_description: sentinel, message: sentinel, code: sentinel,
+      user: { name: sentinel, address: sentinel },
+    }), { status: 422 })
+  });
+  await assert.rejects(
+    client.request({ method: 'POST', apiPath: '/application/listings/123', body: { title: 'test' } }),
+    error => {
+      assert.equal(error.status, 422);
+      assert.equal(error.code, 'ETSY_API_ERROR');
+      assert.equal(JSON.stringify({ message: error.message, details: error.details }).includes(sentinel), false);
+      assert.match(error.message, /422/);
+      return true;
+    }
+  );
+});

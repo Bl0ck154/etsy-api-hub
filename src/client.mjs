@@ -168,11 +168,11 @@ export class EtsyClient {
     const data = await parseResponse(response);
     const meta = { status: response.status, rate_limit: rateMeta(response.headers), method: verb, path: normalizedPath };
     if (!response.ok) {
-      const message = data?.error_description || data?.error || data?.message || `Etsy API HTTP ${response.status}`;
+      const message = `Etsy API HTTP ${response.status}`;
       throw new EtsyHubError(String(message), {
-        code: data?.code || 'ETSY_API_ERROR',
+        code: 'ETSY_API_ERROR',
         status: response.status,
-        details: { response: data, meta },
+        details: { meta },
       });
     }
     return { data, meta };
