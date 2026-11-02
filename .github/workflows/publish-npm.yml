@@ -1,0 +1,37 @@
+name: Publish npm (trusted publishing)
+
+# Manual only; configure npmjs.com trusted publisher for this exact workflow first.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Verify source
+        run: |
+          npm run check
+          npm test
+          npm pack --dry-run --ignore-scripts
+      - name: Stop if exact package version already exists
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "$NAME@$VERSION" version --silent >/dev/null 2>&1; then
+            echo "Refusing to republish $NAME@$VERSION"
+            exit 1
+          fi
+      - name: Publish with short-lived OIDC identity and provenance
+        run: npm publish --access public --ignore-scripts
