@@ -1,8 +1,8 @@
-# MCP client setup
+# Etsy Seller MCP Hub: MCP client setup
 
 ## Claude Desktop / Cursor (local stdio)
 
-Clone this repository, configure your own Etsy credentials and create an ETSY_HUB_CONFIG JSON file. Run `npm link` inside the cloned repository or install `etsy-api-hub` from npm after publication. If your client has a user-specific executable search path, use an absolute path to the project script.
+Clone this repository, configure your own Etsy credentials and create an ETSY_HUB_CONFIG JSON file. Run `npm link` inside the cloned repository or install `etsy-seller-mcp-hub` from npm after publication. If your client has a user-specific executable search path, use an absolute path to the project script.
 
 Example MCP client configuration:
 
@@ -11,7 +11,7 @@ Example MCP client configuration:
   "mcpServers": {
     "etsy": {
       "command": "node",
-      "args": ["/absolute/path/to/etsy-api-hub/bin/etsy-mcp.mjs"],
+      "args": ["/absolute/path/to/etsy-seller-mcp-hub/bin/etsy-mcp.mjs"],
       "env": {
         "ETSY_HUB_CONFIG": "/absolute/path/to/config.json"
       }
@@ -35,3 +35,5 @@ A generic multi-user OAuth platform, tenant-isolated credentials and broad non-C
 ## Security
 
 Read-only tools are suitable for exploratory prompts. Review write requests before approving them. The generic etsy_request_write and etsy_request_multipart tools expose broad Etsy API functionality and may not automatically save listing backups.
+
+For Seller Apps and existing Personal Keys, see [API access requirements](ACCESS.md). The app type limits Etsy permissions independently of MCP.

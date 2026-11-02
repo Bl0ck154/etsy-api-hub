@@ -21,7 +21,7 @@ test('stdio lists 77 MCP tools without remote OAuth metadata', async () => {
   assert.equal(localMcpTools().length,77);
   assert(localMcpTools().every(x => !Object.hasOwn(x,'securitySchemes')));
   const handle=createStdioHandler({call:async()=>({ok:true})});
-  assert.equal((await handle({jsonrpc:'2.0',id:1,method:'initialize'})).result.serverInfo.name,'etsy-mcp-hub');
+  assert.equal((await handle({jsonrpc:'2.0',id:1,method:'initialize'})).result.serverInfo.name,'etsy-seller-mcp-hub');
   assert.equal((await handle({jsonrpc:'2.0',id:2,method:'tools/list'})).result.tools.length,77);
   assert.deepEqual((await handle({jsonrpc:'2.0',id:3,method:'tools/call',params:{name:'etsy_shops',arguments:{}}})).result.structuredContent,{ok:true});
   assert.equal(await handle({jsonrpc:'2.0',method:'notifications/initialized'}),null);
