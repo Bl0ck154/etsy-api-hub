@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="280" viewBox="0 0 1200 280" role="img" aria-labelledby="title desc">
+<title id="title">Etsy MCP Hub</title>
+<desc id="desc">Etsy API tools for AI clients, CLI and applications</desc>
+<rect width="1200" height="280" rx="22" fill="#17232c"/>
+<rect x="34" y="35" width="205" height="210" rx="25" fill="#e66b31"/>
+<g fill="none" stroke="#fff" stroke-width="11" stroke-linejoin="round" stroke-linecap="round">
+<path d="M88 108h97l-10 91H98z"/><path d="M112 108V91c0-33 48-33 48 0v17"/>
+</g>
+<text x="278" y="114" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="65" fill="#fff">Etsy MCP Hub</text>
+<text x="281" y="164" font-family="Arial,Helvetica,sans-serif" font-size="27" fill="#cfdae1">Connect Etsy Open API v3 to your AI tools</text>
+<rect x="278" y="190" width="170" height="42" rx="21" fill="#314551"/>
+<text x="363" y="218" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="19" fill="#f9fcff">77 MCP tools</text>
+<rect x="461" y="190" width="143" height="42" rx="21" fill="#314551"/>
+<text x="532" y="218" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="19" fill="#f9fcff">Node.js 22+</text>
+<rect x="617" y="190" width="185" height="42" rx="21" fill="#314551"/>
+<text x="709" y="218" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="19" fill="#f9fcff">CLI + HTTP API</text>
+</svg>

@@ -226,10 +226,12 @@ export class EtsyMcpOAuth {
       const requestedResource = url.searchParams.get('resource') || '';
       const requestedScope = url.searchParams.get('scope')?.trim() || SCOPE;
       const state = url.searchParams.get('state') || '';
+      let trustedRedirect = false;
       try {
         if (responseType !== 'code' || challengeMethod !== 'S256' || challenge.length < 43 || requestedResource !== resource) throw new Error('invalid_request');
         if (requestedScope.split(/\s+/).some(scope => scope !== SCOPE)) throw new Error('invalid_scope');
         await this.validateChatGptClient(clientId, redirectUri);
+        trustedRedirect = true;
 
         if (req.method === 'GET') { passwordPage(res); return true; }
 
@@ -260,7 +262,7 @@ export class EtsyMcpOAuth {
         res.end();
       } catch (error) {
         const code = ['unauthorized_client', 'invalid_redirect_uri', 'invalid_scope'].includes(error?.message) ? error.message : 'invalid_request';
-        if (redirectUri) {
+        if (trustedRedirect && redirectUri) {
           try {
             const target = new URL(redirectUri);
             target.searchParams.set('error', code);

@@ -4,7 +4,10 @@ import { ETSY_MCP_TOOLS } from './mcp-tools.mjs';
 export { ETSY_MCP_TOOLS } from './mcp-tools.mjs';
 export const MODERN_MCP_VERSION = '2026-07-28';
 const LEGACY_MCP_VERSION = '2025-06-18';
-const MAX_MCP_BODY = 192 * 1024 * 1024;
+const configuredMaxBody = Number(process.env.ETSY_MCP_MAX_BODY_BYTES);
+const MAX_MCP_BODY = Number.isFinite(configuredMaxBody) && configuredMaxBody >= 1024 * 1024
+  ? Math.min(configuredMaxBody, 192 * 1024 * 1024)
+  : 64 * 1024 * 1024;
 
 function sendJson(res, status, value) {
   const body = JSON.stringify(value);

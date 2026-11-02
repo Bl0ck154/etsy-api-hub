@@ -6,9 +6,9 @@
                                              |
     internal projects -----> local HTTP -----+--> EtsyHub --> EtsyClient --> TokenFileStore --> Etsy Open API v3
                                              |
-    future GPT/MCP --------> adapter --------+
+    existing GPT/MCP --------> adapter --------+
 
-Future GPT Actions, MCP servers, or app-specific adapters must call into this Hub instead of copying Etsy auth logic.
+GPT Actions, MCP servers and app-specific adapters use this shared Hub instead of copying Etsy auth logic.
 
 ## Separation from legacy Etsy Manager Pro
 

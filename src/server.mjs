@@ -7,6 +7,7 @@ import { EtsyHub } from './hub.mjs';
 import { buildGptOpenApi, gptRead, gptWrite } from './gpt-adapter.mjs';
 import { EtsyMcpOAuth } from './mcp-oauth.mjs';
 import { EtsyMcpAdapter } from './mcp-adapter.mjs';
+import { assertSafeServerConfig } from './server-security.mjs';
 
 const MAX_BODY = 2 * 1024 * 1024;
 
@@ -69,6 +70,7 @@ const config = await loadConfig();
 const tokenStoreFactory = await loadTokenStoreFactory();
 const hub = new EtsyHub(config, { tokenStoreFactory });
 const internalToken = await loadInternalToken(config);
+assertSafeServerConfig(config, internalToken);
 const mcpOAuth = internalToken ? new EtsyMcpOAuth(internalToken, config.oauth_state_dir) : null;
 const mcpAdapter = new EtsyMcpAdapter(hub, config);
 
